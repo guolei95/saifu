@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>赛赋 SaiFu - 智能竞赛匹配</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- 顶部导航栏 -->
+<nav class="navbar">
+  <div class="nav-inner">
+    <a href="#" class="nav-brand">🏆 赛赋 SaiFu</a>
+    <span class="nav-tag">智能竞赛匹配</span>
+  </div>
+</nav>
+
+<div class="container">
+
+  <!-- 进度条 -->
+  <div class="progress-wrap">
+    <div class="progress-info">
+      <span>完成度</span>
+      <span id="progressPercent">0%</span>
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+  </div>
+
+  <!-- 表单区 -->
+  <div id="formArea">
+
+    <!-- 步骤 1: 基本信息 -->
+    <div class="section open" id="section1">
+      <div class="section-header" onclick="toggleSection(1)">
+        <span class="section-num">1</span>
+        <span>基本信息 <span class="badge-required">必填</span></span>
+        <span class="section-arrow">▼</span>
+      </div>
+      <div class="section-body">
+        <div class="form-row">
+          <label>学校全称 <span class="req">*</span></label>
+          <input type="text" id="school" placeholder="如：湖北师范大学">
+        </div>
+        <div class="form-row">
+          <label>专业 <span class="req">*</span></label>
+          <input type="text" id="major" placeholder="如：计算机科学与技术">
+        </div>
+        <div class="form-row">
+          <label>年级 <span class="req">*</span></label>
+          <select id="grade">
+            <option value="">请选择</option>
+            <option>大一</option>
+            <option>大二</option>
+            <option>大三</option>
+            <option>大四</option>
+            <option>研一</option>
+            <option>研二</option>
+            <option>研三</option>
+            <option>已毕业</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>兴趣领域</label>
+          <input type="text" id="interests" placeholder="如：AI/大模型、编程算法、数据分析">
+        </div>
+        <div class="form-row">
+          <label>技能</label>
+          <input type="text" id="skills" placeholder="如：Python、机器学习、Web开发">
+        </div>
+      </div>
+    </div>
+
+    <!-- 步骤 2: 参赛偏好 -->
+    <div class="section" id="section2">
+      <div class="section-header" onclick="toggleSection(2)">
+        <span class="section-num">2</span>
+        <span>参赛偏好</span>
+        <span class="section-arrow">▼</span>
+      </div>
+      <div class="section-body" style="display:none">
+        <div class="form-row">
+          <label>参赛目标（可多选）</label>
+          <div class="checkbox-group">
+            <label class="cb-label"><input type="checkbox" value="保研加分"> 保研加分</label>
+            <label class="cb-label"><input type="checkbox" value="能力锻炼"> 能力锻炼</label>
+            <label class="cb-label"><input type="checkbox" value="求职直通"> 求职直通</label>
+            <label class="cb-label"><input type="checkbox" value="拿奖"> 拿奖</label>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>每周可投入时间</label>
+          <select id="time_commitment">
+            <option value="">不限</option>
+            <option>每周少于5小时</option>
+            <option>每周5-10小时</option>
+            <option>每周10-15小时</option>
+            <option>每周15-20小时</option>
+            <option>每周20小时以上</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>赛事级别偏好</label>
+          <select id="preference">
+            <option value="">不限</option>
+            <option>国家级</option>
+            <option>省级</option>
+            <option>校级</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>个人/团队偏好</label>
+          <select id="team_preference">
+            <option value="">不限</option>
+            <option>个人赛</option>
+            <option>团队赛</option>
+            <option>个人或团队均可</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>是否有指导老师</label>
+          <select id="has_advisor">
+            <option value="">未知</option>
+            <option>有指导老师</option>
+            <option>没有指导老师</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>是否接受跨校组队</label>
+          <select id="can_cross_school">
+            <option value="">未知</option>
+            <option>可以跨校</option>
+            <option>不可以跨校</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>报名费预算</label>
+          <select id="fee_budget">
+            <option value="">不限</option>
+            <option>免费</option>
+            <option>100元以内</option>
+            <option>500元以内</option>
+            <option>不限</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>想要避免的竞赛类型</label>
+          <input type="text" id="avoid_types" placeholder="如：纯艺术类、数学建模类">
+        </div>
+      </div>
+    </div>
+
+    <!-- 步骤 3: 能力经历 -->
+    <div class="section" id="section3">
+      <div class="section-header" onclick="toggleSection(3)">
+        <span class="section-num">3</span>
+        <span>能力经历</span>
+        <span class="section-arrow">▼</span>
+      </div>
+      <div class="section-body" style="display:none">
+        <div class="form-row">
+          <label>技术方向（可多选）</label>
+          <div class="checkbox-group">
+            <label class="cb-label"><input type="checkbox" name="tech_direction" value="人工智能"> AI/人工智能</label>
+            <label class="cb-label"><input type="checkbox" name="tech_direction" value="后端开发"> 后端开发</label>
+            <label class="cb-label"><input type="checkbox" name="tech_direction" value="前端开发"> 前端开发</label>
+            <label class="cb-label"><input type="checkbox" name="tech_direction" value="数据分析"> 数据分析</label>
+            <label class="cb-label"><input type="checkbox" name="tech_direction" value="嵌入式"> 嵌入式/硬件</label>
+            <label class="cb-label"><input type="checkbox" name="tech_direction" value="网络安全"> 网络安全</label>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>常用工具</label>
+          <input type="text" id="tools" placeholder="如：Git、VS Code、Docker">
+        </div>
+        <div class="form-row">
+          <label>过往最高获奖</label>
+          <select id="past_highest_award">
+            <option value="">无</option>
+            <option>国际级获奖</option>
+            <option>国家级获奖</option>
+            <option>省级获奖</option>
+            <option>校级获奖</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- 步骤 4: 参赛目标 -->
+    <div class="section" id="section4">
+      <div class="section-header" onclick="toggleSection(4)">
+        <span class="section-num">4</span>
+        <span>参赛目标</span>
+        <span class="section-arrow">▼</span>
+      </div>
+      <div class="section-body" style="display:none">
+        <div class="form-row">
+          <label>理想目标</label>
+          <input type="text" id="ideal_goal" placeholder="如：拿到国家级奖项">
+        </div>
+        <div class="form-row">
+          <label>参赛策略</label>
+          <select id="strategy">
+            <option value="">不限</option>
+            <option>先参加门槛低的积累经验</option>
+            <option>直接挑战高含金量赛事</option>
+            <option>保研加分优先</option>
+            <option>求职加分优先</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- 匹配按钮 -->
+    <div class="match-btn-wrap">
+      <button class="btn-match" id="btnMatch" onclick="startMatch()">
+        🔍 开始智能匹配
+      </button>
+      <p class="match-hint">AI 将搜索最新竞赛信息并与你的画像匹配，预计需要 30-60 秒</p>
+    </div>
+  </div>
+
+  <!-- 加载状态 -->
+  <div id="loadingArea" style="display:none">
+    <div class="loading-card">
+      <div class="spinner"></div>
+      <h3>AI 正在搜索和匹配竞赛...</h3>
+      <div class="loading-steps">
+        <div class="load-step" id="loadStep1">• 正在生成搜索关键词...</div>
+        <div class="load-step" id="loadStep2">• 正在搜索最新竞赛信息...</div>
+        <div class="load-step" id="loadStep3">• 正在进行 AI 智能匹配...</div>
+        <div class="load-step" id="loadStep4">• 正在交叉验证和审查结果...</div>
+      </div>
+      <p class="loading-time">⏳ 预计需要 30-60 秒，请耐心等待</p>
+    </div>
+  </div>
+
+  <!-- 错误提示 -->
+  <div id="errorArea" style="display:none">
+    <div class="error-card">
+      <h3>⚠️ 匹配暂时不可用</h3>
+      <p id="errorMsg">请稍后重试</p>
+      <p class="error-hint">可能原因：网络波动 / 服务繁忙 / API 额度不足。如果多次失败，请联系小雷。</p>
+      <button class="btn-retry" onclick="retryMatch()">🔄 重试</button>
+    </div>
+  </div>
+
+  <!-- 结果展示 -->
+  <div id="resultArea" style="display:none">
+    <h2 class="result-title">🟢 报名中的竞赛</h2>
+    <div class="card-grid" id="openCards"></div>
+
+    <div id="resourceSection" style="display:none">
+      <h2 class="result-title">📋 参考资源</h2>
+      <div class="resource-list" id="resourceList"></div>
+    </div>
+
+    <div id="closedSection" style="display:none">
+      <h2 class="result-title">🔴 已截止（可提前规划）</h2>
+      <div class="card-grid" id="closedCards"></div>
+    </div>
+
+    <!-- 小贴士 -->
+    <div class="tips-card" id="tipsArea"></div>
+  </div>
+
+</div>
+
+<script src="js/app.js"></script>
+</body>
+</html>

@@ -7,7 +7,7 @@
 // ═══════════════════════════════════════
 const API_BASE_URL = window.location.hostname === 'localhost'
   ? 'http://localhost:8000'
-  : 'https://你的后端地址.onrender.com';  // ← 部署后改成 Render 给的地址
+  : 'https://lab-thoughts-exclusive-resistance.trycloudflare.com';
 
 const MATCH_TIMEOUT = 120000; // 120 秒超时
 

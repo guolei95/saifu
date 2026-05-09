@@ -125,14 +125,25 @@ JSON格式(必须严格，每条包含全部字段):
 
 
 def _normalize_name(name: str) -> str:
-    """归一化竞赛名，用于去重比较。"""
+    """归一化竞赛名，用于去重比较 — 激进模式，宁可多去不少去。"""
     import re
     n = name.lower().strip()
+    # 删除括号及其中内容：(NECCS)、（全国赛）、[简称] 等
+    n = re.sub(r'[（(][^）)]*[）)]', '', n)
+    n = re.sub(r'[【\[]([^】\]])*[】\]]', '', n)
+    # 删除届数
     n = re.sub(r'第[一二三四五六七八九十\d]+届', '', n)
-    n = re.sub(r'[「」『』""（）()" "]', '', n)
-    n = re.sub(r'[\d]{4}[\s\-_]*(?:[\d]{4})?', '', n)
-    n = re.sub(r'(中国赛|全球赛|省赛|国赛|校赛|区域赛|选拔赛|决赛)$', '', n)
-    n = re.sub(r'[\s\-_]+', '', n)
+    # 删除年份+年：2026年、2025-2026年度
+    n = re.sub(r'\d{4}[-\s]*\d{0,4}\s*[年年度]', '', n)
+    # 删除所有标点、括号、特殊符号
+    n = re.sub(r'[]「」『』""''""（）()[【】《》、，。；：！？·|/@#$%^&*+=~` _-]+', '', n)
+    # 删除常见后缀
+    n = re.sub(r'(中国赛|全球赛|全国赛|省赛|国赛|校赛|区域赛|选拔赛|初赛|复赛|决赛|总赛)$', '', n)
+    # 删除常见前缀
+    n = re.sub(r'^(中国|全国|全球|国际)', '', n)
+    # 如果归一化后太短（<2字符），保留原名（避免不同竞赛被错误合并）
+    if len(n.strip()) < 2:
+        return name.lower().strip()
     return n.strip()
 
 
@@ -244,12 +255,64 @@ def match_competitions(profile: dict) -> dict:
     # 按匹配度排序
     competitions = sorted(competitions, key=lambda m: int(_val(m, "match_score", "s") or 0), reverse=True)
 
+    # ── 去重：open 列表内部去重 ──
+    def _dedup(items: list[dict]) -> list[dict]:
+        """双重去重：先按归一化名称，再按 URL（registration_url + official_url）。"""
+        seen_names = set()
+        seen_urls = set()
+        result = []
+        for m in items:
+            norm = _normalize_name(_val(m, "name", "n") or "")
+            # 按名称去重
+            if norm and norm in seen_names:
+                continue
+            # 按 URL 去重（非"未知"的 URL 才参与比较）
+            urls = [
+                (m.get("registration_url") or "").strip().rstrip("/"),
+                (m.get("official_url") or "").strip().rstrip("/"),
+                (m.get("source_url") or "").strip().rstrip("/"),
+            ]
+            has_url_overlap = False
+            for u in urls:
+                if u and u not in ("未知", "无", "", "未找到", "暂无"):
+                    if u in seen_urls:
+                        has_url_overlap = True
+                        break
+            if has_url_overlap:
+                continue
+            # 记录
+            if norm:
+                seen_names.add(norm)
+            for u in urls:
+                if u and u not in ("未知", "无", "", "未找到", "暂无"):
+                    seen_urls.add(u)
+            result.append(m)
+        return result
+
+    competitions = _dedup(competitions)
+
     # 去重：已截止列表中排除与报名中同名的
     open_norm = set()
+    open_urls = set()
     for m in competitions:
         open_norm.add(_normalize_name(_val(m, "name", "n") or ""))
-    closed_list = [m for m in closed_list if _normalize_name(_val(m, "name", "n") or "") not in open_norm]
+        for key in ("registration_url", "official_url", "source_url"):
+            u = (m.get(key) or "").strip().rstrip("/")
+            if u and u not in ("未知", "无", "", "未找到", "暂无"):
+                open_urls.add(u)
+    def _in_open(m):
+        if _normalize_name(_val(m, "name", "n") or "") in open_norm:
+            return True
+        for key in ("registration_url", "official_url", "source_url"):
+            u = (m.get(key) or "").strip().rstrip("/")
+            if u and u in open_urls:
+                return True
+        return False
+    closed_list = [m for m in closed_list if not _in_open(m)]
     closed_list = sorted(closed_list, key=lambda m: int(_val(m, "match_score", "s") or 0), reverse=True)[:MAX_CLOSED_COMPETITIONS]
+
+    # 去重：resources 列表内部去重
+    resources = _dedup(resources)
 
     # ── 步骤 8: 补充分类、好处、避坑、案例 ──
     for m in competitions + closed_list:

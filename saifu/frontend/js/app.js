@@ -9,7 +9,7 @@ const API_BASE_URL = window.location.hostname === 'localhost'
   ? 'http://localhost:8000'
   : 'https://vision-runtime-disturbed-pending.trycloudflare.com';
 
-const MATCH_TIMEOUT = 120000; // 120 秒超时
+const MATCH_TIMEOUT = 300000; // 300 秒超时（搜索+多轮AI调用需要时间）
 
 // ═══════════════════════════════════════
 // 折叠区块
@@ -177,10 +177,10 @@ async function startMatch() {
 // ═══════════════════════════════════════
 function simulateLoadingSteps() {
   const steps = [
-    { id: 'loadStep1', delay: 500 },
-    { id: 'loadStep2', delay: 3000 },
-    { id: 'loadStep3', delay: 8000 },
-    { id: 'loadStep4', delay: 15000 },
+    { id: 'loadStep1', delay: 1000 },
+    { id: 'loadStep2', delay: 5000 },
+    { id: 'loadStep3', delay: 15000 },
+    { id: 'loadStep4', delay: 40000 },
   ];
 
   steps.forEach(({ id, delay }) => {

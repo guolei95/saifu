@@ -7,7 +7,7 @@
 // ═══════════════════════════════════════
 const API_BASE_URL = window.location.hostname === 'localhost'
   ? 'http://localhost:8000'
-  : 'https://lab-thoughts-exclusive-resistance.trycloudflare.com';
+  : 'https://vision-runtime-disturbed-pending.trycloudflare.com';
 
 const MATCH_TIMEOUT = 120000; // 120 秒超时
 

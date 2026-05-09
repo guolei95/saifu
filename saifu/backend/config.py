@@ -2,6 +2,9 @@
 赛赋(SaiFu) 配置模块 — 统一管理所有配置，API Key 从环境变量读取。
 """
 import os
+from dotenv import load_dotenv
+
+load_dotenv()  # 从 .env 文件加载环境变量（本地开发用）
 
 # ── DeepSeek API 配置 ──
 DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")

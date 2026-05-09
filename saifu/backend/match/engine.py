@@ -189,7 +189,7 @@ def match_competitions(profile: dict) -> dict:
 {rules}
 
 ⚠️ 关键要求:
-- type="competition"的具体竞赛：至少输出12条
+- type="competition"的具体竞赛：至少输出6条
 - type="resource"的竞赛目录/汇总清单：有多少输出多少
 - match_score < 50 不要输出
 - match_reason 三段式:"专业匹配度:XX;年级/时间合适度:XX;兴趣/目标契合度:XX"

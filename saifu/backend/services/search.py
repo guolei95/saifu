@@ -26,15 +26,10 @@ def generate_search_queries(profile: dict) -> list[str]:
 
     queries = []
 
-    # 热门竞赛精确查询（限定官方域 + 当前年份）
-    hot_competitions = [
-        "蓝桥杯", "华为ICT大赛", "数学建模", "计算机设计大赛",
-        "挑战杯", "互联网+", "服创大赛", "信息安全竞赛",
-        "全国大学生电子设计竞赛", "全国大学生英语竞赛",
-    ]
-    for comp in hot_competitions:
-        queries.append(f"{comp} 2026 报名通知 site:edu.cn")
-        queries.append(f"{comp} 2026 大赛 官网 比赛时间")
+    # 热门竞赛精确查询（每项只查一条，减少搜索耗时）
+    for comp in ["蓝桥杯", "华为ICT大赛", "数学建模", "计算机设计大赛",
+                  "挑战杯", "互联网+", "服创大赛", "信息安全竞赛"]:
+        queries.append(f"{comp} 2026 报名通知 官网")
 
     # 专业相关查询
     if major:

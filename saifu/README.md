@@ -9,7 +9,7 @@
 | 组件 | 地址 | 平台 | 费用 |
 |------|------|------|------|
 | 前端 | https://saifu-75e4.vercel.app | Vercel（香港节点） | ¥0 |
-| 后端隧道 | https://lab-thoughts-exclusive-resistance.trycloudflare.com | Cloudflare Tunnel | ¥0 |
+| 后端隧道 | https://vision-runtime-disturbed-pending.trycloudflare.com | Cloudflare Tunnel | ¥0 |
 | 后端本地 | localhost:8000 | 你的电脑 | — |
 | AI API | api.deepseek.com | DeepSeek | ¥0.2-0.5/次 |
 | 代码仓库 | https://github.com/guolei95/saifu | GitHub | ¥0 |

@@ -7,7 +7,7 @@
 // ═══════════════════════════════════════
 const API_BASE_URL = window.location.hostname === 'localhost'
   ? 'http://localhost:8000'
-  : 'https://diff-allen-coating-prints.trycloudflare.com';
+  : 'https://satin-medieval-root-application.trycloudflare.com';
 
 const MATCH_TIMEOUT = 300000; // 300 秒超时（搜索+多轮AI调用需要时间）
 
@@ -105,7 +105,7 @@ function collectProfile() {
 }
 
 // ═══════════════════════════════════════
-// 开始匹配
+// 开始匹配（提交+轮询模式）
 // ═══════════════════════════════════════
 async function startMatch() {
   const profile = collectProfile();
@@ -132,35 +132,70 @@ async function startMatch() {
   simulateLoadingSteps();
 
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), MATCH_TIMEOUT);
-
-    const response = await fetch(API_BASE_URL + '/api/match', {
+    // 第1步：提交匹配任务（快速返回 task_id）
+    const submitResp = await fetch(API_BASE_URL + '/api/match', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(profile),
-      signal: controller.signal,
     });
 
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      throw new Error(`服务器返回错误: ${response.status}`);
+    if (!submitResp.ok) {
+      throw new Error(`提交失败: ${submitResp.status}`);
     }
 
-    const data = await response.json();
-
-    if (!data.success) {
-      throw new Error(data.error || '匹配失败');
+    const submitData = await submitResp.json();
+    if (!submitData.success || !submitData.task_id) {
+      throw new Error(submitData.error || '提交匹配任务失败');
     }
 
-    // 渲染结果
-    renderResults(data);
+    const taskId = submitData.task_id;
+
+    // 第2步：轮询获取结果
+    const pollInterval = 2000; // 每2秒轮询一次
+    const maxPolls = 150;      // 最多轮询300秒
+    let pollCount = 0;
+
+    while (pollCount < maxPolls) {
+      await sleep(pollInterval);
+      pollCount++;
+
+      try {
+        const pollResp = await fetch(API_BASE_URL + '/api/match/' + taskId);
+        if (!pollResp.ok) continue;
+
+        const pollData = await pollResp.json();
+
+        if (pollData.status === 'done') {
+          // 匹配完成！
+          if (!pollData.result || !pollData.result.success) {
+            throw new Error((pollData.result && pollData.result.error) || '匹配失败');
+          }
+          renderResults(pollData.result);
+          return;
+        }
+
+        if (pollData.status === 'error') {
+          throw new Error(pollData.error || '匹配服务出错');
+        }
+
+        // status === 'processing' → 继续轮询
+        updateLoadingProgress(pollCount);
+
+      } catch (pollErr) {
+        // 单次轮询失败不中断，继续重试
+        if (pollErr.message && !pollErr.message.includes('Failed to fetch')) {
+          throw pollErr;
+        }
+      }
+    }
+
+    // 超时
+    throw new Error('匹配超时（超过 ' + MATCH_TIMEOUT/1000 + ' 秒）。请稍后重试。');
 
   } catch (error) {
     if (error.name === 'AbortError') {
-      showError('匹配超时（超过 120 秒）。请检查网络后重试。');
-    } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+      showError('匹配超时（超过 ' + MATCH_TIMEOUT/1000 + ' 秒）。请检查网络后重试。');
+    } else if (error.message && (error.message.includes('Failed to fetch') || error.message.includes('NetworkError'))) {
       showError('无法连接到服务器。请检查后端是否已部署并运行。');
     } else {
       showError(error.message || '未知错误');
@@ -169,6 +204,22 @@ async function startMatch() {
     document.getElementById('loadingArea').style.display = 'none';
     document.getElementById('btnMatch').disabled = false;
     document.getElementById('btnMatch').textContent = '🔍 开始智能匹配';
+  }
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function updateLoadingProgress(pollCount) {
+  // 根据轮询次数更新加载提示
+  const stage3 = document.getElementById('loadStep3');
+  const stage4 = document.getElementById('loadStep4');
+  if (pollCount > 10 && stage3 && !stage3.classList.contains('active')) {
+    stage3.classList.add('active');
+  }
+  if (pollCount > 40 && stage4 && !stage4.classList.contains('active')) {
+    stage4.classList.add('active');
   }
 }
 

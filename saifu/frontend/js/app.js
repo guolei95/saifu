@@ -7,7 +7,7 @@
 // ═══════════════════════════════════════
 const API_BASE_URL = window.location.hostname === 'localhost'
   ? 'http://localhost:8000'
-  : 'https://satin-medieval-root-application.trycloudflare.com';
+  : 'https://ink-appointment-yacht-charming.trycloudflare.com';
 
 const MATCH_TIMEOUT = 300000; // 300 秒超时（搜索+多轮AI调用需要时间）
 

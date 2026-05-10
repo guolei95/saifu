@@ -4,15 +4,17 @@
 
 ---
 
-## 当前部署状态（2026-05-08）
+## 当前部署状态（2026-05-10）
 
 | 组件 | 地址 | 平台 | 费用 |
 |------|------|------|------|
 | 前端 | https://saifu-75e4.vercel.app | Vercel（香港节点） | ¥0 |
-| 后端隧道 | https://vision-runtime-disturbed-pending.trycloudflare.com | Cloudflare Tunnel | ¥0 |
+| 后端隧道 | https://precious-typing-brand-budgets.trycloudflare.com | Cloudflare Tunnel | ¥0 |
 | 后端本地 | localhost:8000 | 你的电脑 | — |
 | AI API | api.deepseek.com | DeepSeek | ¥0.2-0.5/次 |
 | 代码仓库 | https://github.com/guolei95/saifu | GitHub | ¥0 |
+
+> **隧道策略**：优先用 cloudflared（更快），如果 Cloudflare 服务端挂了就用 localhost.run（SSH，无需安装）。两个都是免费。
 
 ### 凭证
 
@@ -45,9 +47,27 @@
 
 ---
 
-## 本地启动（每次重启电脑后必做）
+## 🚀 重启步骤（电脑重启后必做，AI 操作版）
 
-### 1. 启动后端
+> **核心就两步：① 起隧道拿公网地址 → ② 把新地址写进 app.js 推 GitHub。**
+> 
+> RESTART PROCEDURE v2 (2026-05-10):
+> 1. Start backend: `cd "D:\我的竞赛项目-AI赋能竞赛系统\saifu\backend" && set DEEPSEEK_API_KEY=sk-6dfbaf1c69b94a14aafdf29ef4517e7e && python -m uvicorn main:app --host 0.0.0.0 --port 8000` (run in background)
+> 2. Verify: `curl http://localhost:8000/api/health` → expect `{"status":"ok","deepseek_configured":true}`
+> 3. Start tunnel — try cloudflared first, if HTTP 500 from trycloudflare.com (server-side issue, not local config), immediately switch to localhost.run:
+>    - cloudflared: `"D:\我的竞赛项目-AI赋能竞赛系统\saifu\cloudflared.exe" tunnel --url http://localhost:8000` → extract URL like `https://xxx.trycloudflare.com`
+>    - FALLBACK (localhost.run via SSH): `ssh -o StrictHostKeyChecking=no -R 80:localhost:8000 nokey@localhost.run` → extract URL like `https://xxxxxx.lhr.life`
+> 4. Edit `saifu/frontend/js/app.js` line 10: replace the old tunnel URL with the new one
+> 5. Git push: `cd "D:\我的竞赛项目-AI赋能竞赛系统" && git add saifu/frontend/js/app.js && git commit -m "update API URL" && git push`
+> 6. Vercel auto-deploys on push (~30s). Verify: `curl -s https://saifu-75e4.vercel.app | findstr /C:"app.js"`
+> 7. Done. Tell user: "搞定了，打开 https://saifu-75e4.vercel.app 就能用。"
+
+### 手动步骤参考
+
+<details>
+<summary>点击展开手动命令</summary>
+
+#### 1. 启动后端
 
 ```bash
 # Windows CMD
@@ -58,27 +78,35 @@ python -m uvicorn main:app --host 0.0.0.0 --port 8000
 
 验证：浏览器打开 http://localhost:8000/api/health → 应返回 `{"status":"ok","deepseek_configured":true}`
 
-### 2. 启动 Cloudflare Tunnel
+#### 2. 启动隧道（二选一）
 
+**方案 A：Cloudflare Tunnel（优先尝试）**
 ```bash
 cloudflared tunnel --url http://localhost:8000
+# 输出形如 https://xxx.trycloudflare.com
+```
+⚠️ 如果 trycloudflare.com 返回 500 错误（服务端故障），换方案 B。
+
+**方案 B：localhost.run（备用，无需安装任何东西）**
+```bash
+ssh -o StrictHostKeyChecking=no -R 80:localhost:8000 nokey@localhost.run
+# 输出形如 https://xxxxxxxxxxxx.lhr.life
 ```
 
-启动后会输出新 URL（形如 `https://xxx.trycloudflare.com`），**记录下来**。
-
-### 3. 更新前端 API 地址
+#### 3. 更新前端 API 地址 + 推送
 
 拿到新 Tunnel URL 后：
-
 1. 编辑 `saifu/frontend/js/app.js` 第 10 行，改成新 URL
 2. 提交推送：
 ```bash
 cd "D:\我的竞赛项目-AI赋能竞赛系统"
 git add saifu/frontend/js/app.js
-git commit -m "更新API地址"
+git commit -m "update API URL"
 git push
 ```
 3. Vercel 自动检测 push → 自动重新部署（约 30 秒）
+
+</details>
 
 ---
 
@@ -163,11 +191,11 @@ saifu/
 ## 已知限制
 
 1. **后端依赖你的电脑**：关机 = 服务中断
-2. **Tunnel URL 重启变**：每次重启 cloudflared 需更新前端 API 地址
-3. **DuckDuckGo 限速风险**：连续搜索可能触发 202 Ratelimit
-4. **verify_url 未集成**：URL 可达性校验函数已写但未接入 V1（在 engine.py 原代码中）
-5. **用户反馈纠正系统**：save_correction/load_corrections 计划 V2 实现
-6. **print → logging**：engine.py 中部分 print() 建议改为 logging
+2. **Tunnel URL 重启变**：每次重启电脑后需重新起隧道 + 更新 app.js 推 GitHub（见上方重启步骤）
+3. **Cloudflare Quick Tunnel 偶尔 500**：trycloudflare.com 服务端故障时换用 localhost.run（`ssh -R 80:localhost:8000 nokey@localhost.run`）
+4. **DuckDuckGo 限速风险**：连续搜索可能触发 202 Ratelimit
+5. **verify_url 未集成**：URL 可达性校验函数已写但未接入 V1
+6. **用户反馈纠正系统**：save_correction/load_corrections 计划 V2 实现
 
 ---
 

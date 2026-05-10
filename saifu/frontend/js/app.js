@@ -1,5 +1,6 @@
 /**
  * 赛赋 SaiFu — 前端交互逻辑
+ * v2: 适配9段通用表单（覆盖全学科）
  */
 
 // ═══════════════════════════════════════
@@ -12,39 +13,53 @@ const API_BASE_URL = window.location.hostname === 'localhost'
 const MATCH_TIMEOUT = 300000; // 300 秒超时（搜索+多轮AI调用需要时间）
 
 // ═══════════════════════════════════════
-// 折叠区块
+// 表单区块折叠
 // ═══════════════════════════════════════
-function toggleSection(num) {
-  const el = document.getElementById('section' + num);
-  const body = el.querySelector('.section-body');
+function toggleFormSection(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
   const isOpen = el.classList.contains('open');
   if (isOpen) {
     el.classList.remove('open');
-    body.style.display = 'none';
   } else {
     el.classList.add('open');
-    body.style.display = 'block';
   }
-  updateProgress();
 }
 
 // ═══════════════════════════════════════
-// 进度条更新
+// 进度条更新（v2: 适配9段表单）
 // ═══════════════════════════════════════
 function updateProgress() {
-  const fields = ['school', 'major', 'grade'];
   let filled = 0;
-  fields.forEach(id => {
-    const el = document.getElementById(id);
-    if (el && el.value.trim()) filled++;
-  });
-  // 检查 checkbox 组
-  const goalsChecked = document.querySelectorAll('.checkbox-group input:checked').length;
-  if (goalsChecked > 0) filled++;
+  const total = 10; // 总权重
 
-  const percent = Math.min(100, Math.round((filled / Math.max(fields.length, 1)) * 100));
-  document.getElementById('progressFill').style.width = percent + '%';
-  document.getElementById('progressPercent').textContent = percent + '%';
+  // 一、基本信息
+  if ((document.getElementById('school')?.value?.trim() || '').length > 0) filled++;
+  if ((document.getElementById('major')?.value?.trim() || '').length > 0) filled++;
+  if (document.querySelector('input[name="grade"]:checked')) filled++;
+  if (document.querySelectorAll('input[name="interests"]:checked').length > 0) filled++;
+
+  // 二、参赛目标
+  if (document.querySelectorAll('input[name="goals"]:checked').length > 0) filled++;
+
+  // 三、专业能力
+  if ((document.getElementById('core-skills')?.value?.trim() || '').length > 0) filled++;
+  if (document.querySelectorAll('input[name="tech-direction"]:checked').length > 0) filled++;
+
+  // 四、时间投入
+  if (document.querySelector('input[name="weekly-hours"]:checked')) filled++;
+
+  // 六、避免类型
+  if (document.querySelectorAll('input[name="avoid"]:checked').length > 0) filled++;
+
+  // 七、经历（有任一就算）
+  if ((document.getElementById('project1')?.value?.trim() || '').length > 0) filled++;
+
+  const percent = Math.min(100, Math.round((filled / total) * 100));
+  const fillEl = document.getElementById('progressFill');
+  const pctEl = document.getElementById('progressPercent');
+  if (fillEl) fillEl.style.width = percent + '%';
+  if (pctEl) pctEl.textContent = percent + '%';
 }
 
 // 监听所有表单变化更新进度
@@ -53,54 +68,278 @@ document.addEventListener('DOMContentLoaded', () => {
     el.addEventListener('change', updateProgress);
     el.addEventListener('input', updateProgress);
   });
+  // 初始化时也跑一遍
+  updateProgress();
 });
 
 // ═══════════════════════════════════════
-// 收集用户画像
+// 自动保存 & 恢复草稿
+// ═══════════════════════════════════════
+const SAVE_KEY = 'saifu_profile_draft';
+
+function autoSave() {
+  updateProgress();
+  const form = document.getElementById('profileForm');
+  if (!form) return;
+  const data = {};
+  // 保存所有 input/select/textarea 的值
+  form.querySelectorAll('input, select, textarea').forEach(el => {
+    if (el.type === 'radio') {
+      if (el.checked) data[el.name] = el.value;
+    } else if (el.type === 'checkbox') {
+      if (!data[el.name]) data[el.name] = [];
+      if (el.checked) data[el.name].push(el.value);
+    } else {
+      data[el.id || el.name] = el.value;
+    }
+  });
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+  } catch (e) { /* localStorage 不可用 */ }
+}
+
+function loadSaved() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) { showToast('没有已保存的草稿'); return; }
+    const data = JSON.parse(raw);
+    const form = document.getElementById('profileForm');
+    if (!form) return;
+
+    // 先清空
+    form.querySelectorAll('input[type="radio"], input[type="checkbox"]').forEach(el => el.checked = false);
+    form.querySelectorAll('input[type="text"], input[type="url"], textarea').forEach(el => el.value = '');
+
+    // 恢复
+    for (const [key, val] of Object.entries(data)) {
+      if (Array.isArray(val)) {
+        val.forEach(v => {
+          const cb = form.querySelector(`input[name="${key}"][value="${v.replace(/"/g, '&quot;')}"]`);
+          if (cb) cb.checked = true;
+        });
+      } else {
+        const el = form.querySelector(`[id="${key}"]`) || form.querySelector(`input[name="${key}"][value="${val.replace(/"/g, '&quot;')}"]`);
+        if (el) {
+          if (el.type === 'radio') el.checked = true;
+          else el.value = val;
+        }
+      }
+    }
+    // 恢复后触发展示关联字段
+    restoreConditionalFields();
+    updateProgress();
+    showToast('草稿已恢复 ✅');
+  } catch (e) {
+    showToast('草稿恢复失败');
+  }
+}
+
+function clearForm() {
+  if (!confirm('确定要清空所有填写内容吗？此操作不可恢复。')) return;
+  const form = document.getElementById('profileForm');
+  if (!form) return;
+  form.querySelectorAll('input[type="radio"], input[type="checkbox"]').forEach(el => el.checked = false);
+  form.querySelectorAll('input[type="text"], input[type="url"], textarea').forEach(el => el.value = '');
+  document.querySelectorAll('.inline-other').forEach(el => el.classList.remove('show'));
+  updateProgress();
+  try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+  showToast('已清空 ✅');
+}
+
+// ═══════════════════════════════════════
+// 条件字段切换
+// ═══════════════════════════════════════
+
+/** 切换"其他"输入框 */
+function toggleOther(wrapId) {
+  const wrap = document.getElementById(wrapId + '-wrap');
+  if (!wrap) return;
+  const cb = document.querySelector(`input[name="${wrapId.replace('-wrap', '')}"][value="__OTHER__"]`);
+  if (cb && cb.checked) {
+    wrap.classList.add('show');
+    wrap.querySelector('input')?.focus();
+  } else {
+    wrap.classList.remove('show');
+  }
+}
+
+/** 切换报名费过高输入框 */
+function toggleAvoidFee() {
+  const wrap = document.getElementById('avoid-fee-wrap');
+  if (!wrap) return;
+  const cb = document.querySelector('input[name="avoid"][value="报名费过高"]');
+  if (cb && cb.checked) {
+    wrap.classList.add('show');
+    wrap.querySelector('input')?.focus();
+  } else {
+    wrap.classList.remove('show');
+  }
+}
+
+/** 切换作品集链接输入框 */
+function togglePortfolioLink() {
+  const wrap = document.getElementById('portfolio-link-wrap');
+  if (!wrap) return;
+  const radio = document.querySelector('input[name="has-portfolio"][value="有"]');
+  if (radio && radio.checked) {
+    wrap.classList.add('show');
+  } else {
+    wrap.classList.remove('show');
+  }
+}
+
+/** 全年都行 → 清除具体月份选择 */
+function handleYearRound(cb) {
+  if (!cb.checked) return;
+  const specificGroup = document.getElementById('specific-months-group');
+  if (specificGroup) {
+    specificGroup.querySelectorAll('input[type="checkbox"]').forEach(el => el.checked = false);
+  }
+  autoSave();
+}
+
+/** 恢复草稿后重新展示条件字段 */
+function restoreConditionalFields() {
+  // 各"其他"选项
+  ['interests', 'goals', 'tech-direction', 'tools', 'avoid'].forEach(name => {
+    const otherCb = document.querySelector(`input[name="${name}"][value="__OTHER__"]`);
+    if (otherCb && otherCb.checked) {
+      let wrapId;
+      if (name === 'tech-direction') wrapId = 'tech-direction-other-wrap';
+      else if (name === 'avoid') wrapId = 'avoid-other-wrap';
+      else wrapId = name + '-other-wrap';
+      const wrap = document.getElementById(wrapId);
+      if (wrap) wrap.classList.add('show');
+    }
+  });
+  // 报名费过高
+  const avoidFee = document.querySelector('input[name="avoid"][value="报名费过高"]');
+  if (avoidFee && avoidFee.checked) {
+    const wrap = document.getElementById('avoid-fee-wrap');
+    if (wrap) wrap.classList.add('show');
+  }
+  // 作品集链接
+  const hasPf = document.querySelector('input[name="has-portfolio"][value="有"]');
+  if (hasPf && hasPf.checked) {
+    const wrap = document.getElementById('portfolio-link-wrap');
+    if (wrap) wrap.classList.add('show');
+  }
+}
+
+// ═══════════════════════════════════════
+// Toast
+// ═══════════════════════════════════════
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  if (!toast) return;
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2000);
+}
+
+// ═══════════════════════════════════════
+// 收集用户画像（v2: 9段表单 → ProfileInput）
 // ═══════════════════════════════════════
 function collectProfile() {
-  const goals = [];
-  document.querySelectorAll('.checkbox-group input:checked').forEach(cb => {
-    goals.push(cb.value);
-  });
+  // ── 辅助函数 ──
+  const getChecked = (name) => {
+    return Array.from(document.querySelectorAll(`input[name="${name}"]:checked`))
+      .map(cb => cb.value)
+      .filter(v => v !== '__OTHER__');
+  };
+  const getRadio = (name) => {
+    const el = document.querySelector(`input[name="${name}"]:checked`);
+    return el ? el.value : '';
+  };
+  const getVal = (id) => (document.getElementById(id)?.value?.trim() || '');
+  const getOther = (id) => {
+    const el = document.getElementById(id);
+    return el && el.parentElement && el.parentElement.classList.contains('show')
+      ? (el.value?.trim() || '') : '';
+  };
 
-  const techDirs = [];
-  document.querySelectorAll('input[name="tech_direction"]:checked').forEach(cb => {
-    techDirs.push(cb.value);
-  });
+  // ── 一、基本信息 ──
+  const school = getVal('school');
+  const major = getVal('major');
+  const grade = getRadio('grade');
+  const intChecks = getChecked('interests');
+  const intOther = getOther('interests-other');
+  const interests = [...intChecks, intOther].filter(Boolean).join('、');
 
+  // ── 二、参赛目标 ──
+  const goalChecks = getChecked('goals');
+  const goalOther = getOther('goals-other');
+  const goals = [...goalChecks, goalOther].filter(Boolean);
+
+  // ── 三、专业能力 ──
+  const majorCategory = getRadio('major-category');
+  const skills = getVal('core-skills');
+  const techChecks = getChecked('tech-direction');
+  const techOther = getOther('tech-direction-other');
+  const tech_directions = [...techChecks, techOther].filter(Boolean);
+  const toolChecks = getChecked('tools');
+  const toolOther = getOther('tools-other');
+  const tools = [...toolChecks, toolOther].filter(Boolean);
+  const other_skills = getVal('skills-note');
+
+  // ── 四、时间投入 ──
+  const time_commitment = getRadio('weekly-hours');
+  const freeMonths = getChecked('free-months');
+  const available_months = freeMonths.join('、');
+  const summer_winter = getRadio('holiday-ready');
+
+  // ── 五、参赛偏好 ──
+  const preference = getRadio('competition-level');
+  const team_preference = getRadio('team-type');
+  const has_advisor = getRadio('has-advisor');
+  const can_cross_school = getRadio('cross-school');
+  const preferred_duration = getRadio('competition-duration');
+  const preferred_format = getRadio('competition-format');
+  const fee_budget = getRadio('registration-fee');
+  const language_pref = getRadio('language-pref');
+
+  // ── 六、需避免的竞赛类型 ──
+  const avoidChecks = getChecked('avoid');
+  const avoidOther = getOther('avoid-other');
+  let avoid_types = [...avoidChecks].join('、');
+  if (avoidOther) avoid_types += (avoid_types ? '、' : '') + avoidOther;
+  // 如果选了"报名费过高"且有金额
+  if (avoidChecks.includes('报名费过高')) {
+    const feeAmt = (document.getElementById('avoid-fee-amount')?.value?.trim() || '');
+    if (feeAmt) avoid_types += `(超过${feeAmt}元)`;
+  }
+
+  // ── 七、过往参赛经历 ──
+  const past_highest_award = getRadio('highest-award');
+  const representative_projects = ['project1', 'project2', 'project3']
+    .map(id => getVal(id))
+    .filter(Boolean);
+  const has_portfolio = getRadio('has-portfolio') === '有';
+  const portfolio_link = getVal('portfolio-link');
+
+  // ── 八、期望获奖层次 ──
+  const min_award = getRadio('min-award');
+  const ideal_goal = getVal('ideal-goal');
+  const strategy = getRadio('strategy');
+
+  // ── 九、同校组队现状 ──
+  const has_lab_val = getRadio('has-lab');
+  const has_lab = has_lab_val === '有';
+  const join_school_team_val = getRadio('join-school-team');
+  const join_school_team = join_school_team_val === '愿意' || join_school_team_val === '挑项目';
+  const need_teammate = getRadio('need-teammate') === '需要';
+
+  // ── 组装返回（字段名与后端 ProfileInput 一致）──
   return {
-    school: document.getElementById('school')?.value?.trim() || '',
-    major: document.getElementById('major')?.value?.trim() || '',
-    grade: document.getElementById('grade')?.value || '',
-    interests: document.getElementById('interests')?.value?.trim() || '',
-    skills: document.getElementById('skills')?.value?.trim() || '',
-    tech_directions: techDirs,
-    tools: (document.getElementById('tools')?.value?.trim() || '').split(/[,，、]/).filter(Boolean),
-    other_skills: '',
-    goals: goals,
-    time_commitment: document.getElementById('time_commitment')?.value || '',
-    available_months: '',
-    summer_winter: '',
-    preference: document.getElementById('preference')?.value || '',
-    team_preference: document.getElementById('team_preference')?.value || '',
-    preferred_duration: '',
-    preferred_format: '',
-    fee_budget: document.getElementById('fee_budget')?.value || '',
-    language_pref: '中文',
-    has_advisor: document.getElementById('has_advisor')?.value || '',
-    can_cross_school: document.getElementById('can_cross_school')?.value || '',
-    avoid_types: document.getElementById('avoid_types')?.value?.trim() || '',
-    past_highest_award: document.getElementById('past_highest_award')?.value || '',
-    representative_projects: [],
-    has_portfolio: false,
-    portfolio_link: '',
-    has_lab: false,
-    join_school_team: false,
-    need_teammate: false,
-    min_award: '',
-    ideal_goal: document.getElementById('ideal_goal')?.value?.trim() || '',
-    strategy: document.getElementById('strategy')?.value || '',
+    school, major, grade, interests, skills,
+    tech_directions, tools, other_skills,
+    goals, time_commitment, available_months, summer_winter,
+    preference, team_preference, preferred_duration, preferred_format,
+    fee_budget, language_pref, has_advisor, can_cross_school,
+    avoid_types, past_highest_award, representative_projects,
+    has_portfolio, portfolio_link,
+    has_lab, join_school_team, need_teammate,
+    min_award, ideal_goal, strategy,
   };
 }
 

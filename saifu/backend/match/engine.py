@@ -82,6 +82,10 @@ def _build_profile_text(profile: dict) -> str:
 - 技术方向: {profile.get('tech_directions', '未填写')}
 - 参赛目标: {goals_str}
 - 每周时间投入: {profile.get('time_commitment', '未填写')}
+- 空闲月份: {profile.get('available_months', '未填写')}
+- 寒暑假可备赛: {profile.get('summer_winter', '未填写')}
+- 常用工具: {profile.get('tools', '未填写')}
+- 其他技能说明: {profile.get('other_skills', '无')}
 - 赛事偏好: {profile.get('preference', '不限')}
 - 团队/个人偏好: {profile.get('team_preference', '不限')}
 - 是否有指导老师: {profile.get('has_advisor', '未知')}
@@ -89,10 +93,14 @@ def _build_profile_text(profile: dict) -> str:
 - 想避免的竞赛类型: {profile.get('avoid_types', '无')}
 - 过往最高获奖: {profile.get('past_highest_award', '未填写')}
 - 代表性项目: {profile.get('representative_projects', '未填写')}
+- 作品集链接: {profile.get('portfolio_link', '无')}
 - 比赛周期偏好: {profile.get('preferred_duration', '不限')}
 - 比赛形式偏好: {profile.get('preferred_format', '不限')}
 - 报名费预算: {profile.get('fee_budget', '不限')}
-- 语言偏好: {profile.get('language_pref', '不限')}"""
+- 语言偏好: {profile.get('language_pref', '不限')}
+- 最低接受获奖: {profile.get('min_award', '不限')}
+- 理想目标: {profile.get('ideal_goal', '未填写')}
+- 策略偏好: {profile.get('strategy', '未填写')}"""
 
 
 def _build_results_text(results: list[dict]) -> str:
@@ -119,7 +127,14 @@ JSON格式(必须严格，每条包含全部字段):
 1. type: 具体竞赛填"competition"，竞赛目录/汇总清单/排行榜填"resource"
 2. match_score=专业匹配(30)+年级合适(20)+兴趣匹配(30)+可操作(20)
 3. recommend_index(1-5): 1=不推荐 2=勉强 3=可以报 4=推荐 5=强烈推荐
-4. match_reason: 三段式"专业匹配度:XX;年级/时间合适度:XX;兴趣/目标契合度:XX"，每段15-25字
+4. match_reason: 三段式"专业匹配度:XX;年级/时间合适度:XX;兴趣/目标契合度:XX"，每段15-25字。禁止使用"待确认""未知""不明确"等模糊词——必须根据学生画像和竞赛常识给出具体评价，不确定时做合理推断即可
+4a. 年级/时间合适度评估框架(必须据此做出具体判断，不准说"待确认"):
+   - 学生年级来自画像(大一~研三)，竞赛通常面向本科/研究生两个层次
+   - 大一/大二: 适合大多数本科竞赛→写"大二可参加，门槛适中"或"适合低年级积累经验"
+   - 大三/大四: 有专业知识积累→写"大三有基础，正是黄金期"或"大四备赛经验足"
+   - 研一~研三: 适合研究生组别→写"研究生组别匹配"或"科研能力匹配"
+   - 时间投入评估：少于5h/周→适合短期冲刺型；5-15h/周→适合大多数竞赛；15h+/周→适合长期备赛
+   - 结合学生画像中的"每周时间投入"和"空闲月份"，与竞赛周期做匹配判断
 5. benefits: 结合六大好处写出具体好处
 6. pitfalls: 企业类必须写⚠️可能不计综测，团队赛必须提组队
 7. cat: 只填"🏫 学校/教育部类"或"💼 企业类"

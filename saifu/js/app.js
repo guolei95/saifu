@@ -70,6 +70,17 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   // 初始化时也跑一遍
   updateProgress();
+
+  // 自动恢复上次草稿（新开页面不用重新填）
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (raw) {
+      const data = JSON.parse(raw);
+      if (data.school || data.major || data.grade) {
+        setTimeout(() => { loadSaved(); }, 200);
+      }
+    }
+  } catch(e) { /* ignore */ }
 });
 
 // ═══════════════════════════════════════
@@ -487,13 +498,35 @@ function simulateLoadingSteps() {
 function showError(msg) {
   document.getElementById('errorMsg').textContent = msg;
   document.getElementById('errorArea').style.display = 'block';
+  // 确保错误页也有返回按钮
+  const errorCard = document.querySelector('#errorArea .error-card');
+  if (errorCard && !errorCard.querySelector('.btn-back')) {
+    const backBtn = document.createElement('button');
+    backBtn.className = 'btn btn-outline btn-sm btn-back';
+    backBtn.textContent = '🔙 返回修改';
+    backBtn.onclick = backToForm;
+    backBtn.style.cssText = 'margin-top:12px;margin-right:8px;';
+    const retryBtn = errorCard.querySelector('.btn-retry');
+    if (retryBtn) {
+      errorCard.insertBefore(backBtn, retryBtn);
+    } else {
+      errorCard.appendChild(backBtn);
+    }
+  }
   document.getElementById('errorArea').scrollIntoView({ behavior: 'smooth' });
 }
 
-function retryMatch() {
+/** 从结果/错误页返回表单修改（数据保留不丢失） */
+function backToForm() {
+  document.getElementById('resultArea').style.display = 'none';
   document.getElementById('errorArea').style.display = 'none';
+  document.getElementById('loadingArea').style.display = 'none';
   document.getElementById('formArea').style.display = 'block';
   document.getElementById('formArea').scrollIntoView({ behavior: 'smooth' });
+}
+
+function retryMatch() {
+  backToForm();
 }
 
 // ═══════════════════════════════════════
@@ -501,6 +534,17 @@ function retryMatch() {
 // ═══════════════════════════════════════
 function renderResults(data) {
   document.getElementById('resultArea').style.display = 'block';
+
+  // ── 返回修改按钮 ──
+  const resultArea = document.getElementById('resultArea');
+  let backBar = resultArea.querySelector('.back-bar');
+  if (!backBar) {
+    backBar = document.createElement('div');
+    backBar.className = 'back-bar';
+    backBar.style.cssText = 'margin-bottom:14px;text-align:right;';
+    resultArea.insertBefore(backBar, resultArea.firstChild);
+  }
+  backBar.innerHTML = '<button class="btn btn-outline btn-sm" onclick="backToForm()">🔙 返回修改</button>';
 
   // ── 报名中的竞赛 ──
   const openCards = document.getElementById('openCards');

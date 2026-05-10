@@ -637,6 +637,17 @@ function buildCard(comp, index) {
 }
 
 // ═══════════════════════════════════════
+// 联系方式弹窗
+// ═══════════════════════════════════════
+function showContactModal() {
+  document.getElementById('contactModal').classList.add('show');
+}
+function hideContactModal(e) {
+  if (e && e.target !== document.getElementById('contactModal')) return;
+  document.getElementById('contactModal').classList.remove('show');
+}
+
+// ═══════════════════════════════════════
 // 工具函数
 // ═══════════════════════════════════════
 function escHtml(str) {

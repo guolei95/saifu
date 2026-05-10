@@ -104,6 +104,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="nav-inner">
     <a href="#" class="nav-brand">🏆 赛赋 SaiFu</a>
     <span class="nav-tag">智能竞赛匹配 · 覆盖全学科</span>
+    <button class="btn btn-outline btn-sm" onclick="showContactModal()" style="margin-left:auto;">📩 联系我</button>
   </div>
 </nav>
 
@@ -642,6 +643,43 @@ textarea { resize: vertical; min-height: 60px; }
 
 <!-- Toast -->
 <div class="toast" id="toast"></div>
+
+<!-- 联系方式弹窗 -->
+<div class="contact-modal-overlay" id="contactModal" onclick="hideContactModal(event)">
+  <div class="contact-modal" onclick="event.stopPropagation()">
+    <button class="contact-modal-close" onclick="hideContactModal()">&times;</button>
+    <h3>📩 联系开发者</h3>
+    <div class="contact-row">
+      <span class="contact-label">微信号：</span>
+      <span class="contact-value">g2l0u0e7oi</span>
+    </div>
+    <div class="contact-qr">
+      <img src="images/wechat-qr.jpg" alt="微信二维码" style="max-width:200px;border-radius:8px;">
+      <p style="font-size:12px;color:#999;margin-top:8px;">扫码添加，备注「竞赛匹配」</p>
+    </div>
+  </div>
+</div>
+
+<style>
+.contact-modal-overlay {
+  display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.4); z-index: 9999; justify-content: center; align-items: center;
+}
+.contact-modal-overlay.show { display: flex; }
+.contact-modal {
+  background: #fff; border-radius: 12px; padding: 30px 36px; max-width: 360px; width: 90%;
+  text-align: center; position: relative; box-shadow: 0 8px 30px rgba(0,0,0,0.18);
+}
+.contact-modal h3 { margin: 0 0 20px; font-size: 18px; color: #2c3e50; }
+.contact-modal-close {
+  position: absolute; top: 10px; right: 14px; border: none; background: none;
+  font-size: 24px; cursor: pointer; color: #999; line-height: 1;
+}
+.contact-row { margin-bottom: 16px; font-size: 15px; }
+.contact-label { color: #666; }
+.contact-value { font-weight: 600; color: #2c3e50; }
+.contact-qr { border-top: 1px solid #eee; padding-top: 16px; }
+</style>
 
 <!-- ========== 主 JS ========== -->
 <script src="js/app.js"></script>

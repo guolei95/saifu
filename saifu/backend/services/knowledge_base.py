@@ -474,7 +474,46 @@ def _extract_profile_keywords(profile: dict) -> set[str]:
     return keywords
 
 
-def _kb_entry_to_result(entry: dict, score: int, hit_count: int) -> dict:
+def _evaluate_grade_time(profile: dict) -> str:
+    """根据学生画像动态评估年级/时间合适度（知识库匹配用）。"""
+    grade = (profile.get("grade") or "").strip()
+    time = (profile.get("time_commitment") or "").strip()
+    months = (profile.get("available_months") or "").strip()
+
+    # 年级评估
+    grade_map = {
+        "大一": "大一可尝试，门槛较低适合积累经验",
+        "大二": "大二可参加，有专业基础正是好时机",
+        "大三": "大三有扎实基础，正是参赛黄金期",
+        "大四": "大四备赛经验丰富，时间可能紧张",
+        "研一": "研究生组别匹配，科研能力可发挥",
+        "研二": "研二科研能力强，适合高层次竞赛",
+        "研三": "研三经验丰富，注意毕业时间安排",
+    }
+    grade_text = grade_map.get(grade, "各年级均可参加")
+
+    # 时间评估
+    if "15" in time or "16" in time or "20" in time:
+        time_text = "时间充裕可长期备赛"
+    elif "10" in time or "11" in time or "12" in time:
+        time_text = "时间充足适合大多数竞赛"
+    elif "5" in time or "6" in time or "7" in time or "8" in time:
+        time_text = "时间适中可报1-2个竞赛"
+    elif time:
+        time_text = "时间偏紧可报短期冲刺型"
+    else:
+        time_text = "时间未填建议评估"
+
+    # 空闲月份
+    if months and months not in ("未填写", ""):
+        time_text += f"，{months}月有空可集中备赛"
+    else:
+        time_text += "，课余时间备赛即可"
+
+    return f"{grade_text};{time_text}"
+
+
+def _kb_entry_to_result(entry: dict, score: int, hit_count: int, profile: dict) -> dict:
     """将知识库条目转为匹配结果 dict（与 LLM 输出格式兼容）。"""
     name = entry.get("name", "")
     fee = entry.get("fee", "")
@@ -498,13 +537,15 @@ def _kb_entry_to_result(entry: dict, score: int, hit_count: int) -> dict:
     else:
         rec_idx = 2
 
+    grade_time_text = _evaluate_grade_time(profile)
+
     return {
         "type": "competition",
         "name": name,
         "match_score": score,
         "match_reason": (
-            f"专业匹配度:关键词命中{hit_count}个A类竞赛;"
-            "年级/时间合适度:待确认;兴趣/目标契合度:A类优先推荐"
+            f"专业匹配度:A类赛事关键词命中{hit_count}个;"
+            f"年级/时间合适度:{grade_time_text};兴趣/目标契合度:A类赛事优先推荐"
         ),
         "cat": "🏫 学校/教育部类",
         "benefits": "",
@@ -582,7 +623,7 @@ def local_match_from_kb(profile: dict, top_n: int = 15) -> list[dict]:
     # 转换为结果 dict
     results = []
     for entry, score, hits in scored[:top_n]:
-        results.append(_kb_entry_to_result(entry, score, hits))
+        results.append(_kb_entry_to_result(entry, score, hits, profile))
 
     return results
 

@@ -77,13 +77,32 @@ async def health():
 
 @app.get("/api/competitions")
 async def list_competitions():
-    """返回常识库中收录的竞赛列表。"""
+    """返回84项A类竞赛知识库。"""
+    # 去重（同一竞赛可能有多个别称）
+    seen_ids = set()
+    items = []
+    for name, info in COMPETITION_FACTS.items():
+        cid = info.get("id")
+        if cid in seen_ids:
+            continue
+        seen_ids.add(cid)
+        items.append({
+            "id": cid,
+            "name": info.get("name", name),
+            "alt_name": info.get("alt_name", ""),
+            "url": info.get("url", ""),
+            "form": info.get("form", ""),
+            "timing": info.get("timing", ""),
+            "fee": info.get("fee", ""),
+            "format": info.get("format", ""),
+            "requirements": info.get("requirements", ""),
+        })
+    # 按 id 排序
+    items.sort(key=lambda x: x.get("id") or 999)
     return {
         "success": True,
-        "competitions": [
-            {"name": name, "url": info.get("official_url", ""), "form": info.get("参赛形式", "")}
-            for name, info in COMPETITION_FACTS.items()
-        ]
+        "count": len(items),
+        "competitions": items,
     }
 
 

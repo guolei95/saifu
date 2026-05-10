@@ -7,6 +7,7 @@ from services.ai_client import call_deepseek_json
 from services.knowledge_base import (
     enrich_with_facts, classify_competition,
     get_benefit_text, get_pitfall_text, find_related_case,
+    local_match_from_kb, get_kb_competition_list,
     MYTHS, TIPS,
 )
 from services.validation import cross_source_verify, self_review_results
@@ -14,8 +15,9 @@ from config import MIN_MATCH_SCORE, MAX_CLOSED_COMPETITIONS
 
 
 def _build_knowledge_text():
-    """构建嵌入 LLM prompt 的竞赛知识文本。"""
-    return """## 竞赛分类（两类，简单分清）
+    """构建嵌入 LLM prompt 的竞赛知识文本（含84项A类竞赛列表）。"""
+    kb_list = get_kb_competition_list()
+    return f"""## 竞赛分类（两类，简单分清）
 - 🏫 学校/教育部类(蓝桥杯/数学建模/大创/互联网+/挑战杯/计算机设计大赛/信息安全/电子设计等): 由教育部、学校或学会主办,综测✅通常计入,适合保研加分
 - 💼 企业类(华为ICT/百度之星/欧莱雅/宝洁/工行杯等): 由企业主办,综测⚠️可能不计入,但企业认可度高,常含offer/面试直通
 
@@ -31,7 +33,13 @@ def _build_knowledge_text():
 - 企业类必须标注⚠️可能不计综测
 - 团队赛标注👥需组队
 - 收费赛标注💰金额+确认学校报销
-- 大一标注门槛是否适合"""
+- 大一标注门槛是否适合
+
+## ⭐ 优先知识库：教育部认可的A类学科竞赛（优先从以下竞赛中匹配）
+以下竞赛为国家教育部认定的全国大学生学科竞赛，含金量高、综测加分认可度广。匹配时必须优先从其中选择：
+{kb_list}
+
+规则：上述A类竞赛中与学生画像匹配的，match_score 应+5~10分，且在 match_reason 中标注"[A类赛事]"。非A类竞赛的 match_score 正常计算不额外加分。"""
 
 
 def _build_json_template():
@@ -167,6 +175,10 @@ def match_competitions(profile: dict) -> dict:
     """
     today = date.today().isoformat()
 
+    # ── 步骤 0: 本地知识库优先匹配（A类竞赛，不联网不用LLM）──
+    kb_matches = local_match_from_kb(profile)
+    kb_matches = [enrich_with_facts(m) for m in kb_matches]
+
     # ── 步骤 1: 生成搜索词 ──
     queries = generate_search_queries(profile)
 
@@ -174,6 +186,25 @@ def match_competitions(profile: dict) -> dict:
     results = search_competitions(queries)
 
     if not results:
+        # 联网搜索失败但有本地知识库结果，返回知识库结果
+        if kb_matches:
+            for m in kb_matches:
+                name = m.get("name", "")
+                if not m.get("benefits"):
+                    m["benefits"] = get_benefit_text(name)
+                if not m.get("pitfalls"):
+                    is_team = "团队" in str(m.get("participation_type", ""))
+                    m["pitfalls"] = get_pitfall_text(name, is_team, m.get("is_free", True), m.get("fee_amount", ""))
+            return {
+                "success": True,
+                "open": kb_matches,
+                "closed": [],
+                "resources": [],
+                "search_queries_used": queries,
+                "kb_matches_count": len(kb_matches),
+                "note": "联网搜索暂时不可用，以下为本地A类竞赛知识库匹配结果",
+                "tips": TIPS, "myths": MYTHS,
+            }
         return {
             "success": False,
             "error": "搜索未获取到结果，请检查网络或稍后重试",
@@ -332,12 +363,55 @@ def match_competitions(profile: dict) -> dict:
         if not m.get("cat"):
             m["cat"] = "📋 竞赛目录"
 
+    # ── 步骤 9: 合并本地知识库结果（优先）+ LLM 结果 ──
+    if kb_matches:
+        # 收集已有结果的归一化名称和 URL
+        existing_norms = set()
+        existing_urls = set()
+        for m in competitions:
+            existing_norms.add(_normalize_name(_val(m, "name", "n") or ""))
+            for key in ("registration_url", "official_url", "source_url"):
+                u = (m.get(key) or "").strip().rstrip("/")
+                if u and u not in ("未知", "无", "", "未找到", "暂无"):
+                    existing_urls.add(u)
+
+        # 去重：KB 结果中排除与 LLM 结果重复的
+        unique_kb = []
+        for m in kb_matches:
+            norm = _normalize_name(_val(m, "name", "n") or "")
+            kb_url = (m.get("official_url") or "").strip().rstrip("/")
+            if norm and norm in existing_norms:
+                continue
+            if kb_url and kb_url in existing_urls:
+                continue
+            # 补充 benefits/pitfalls（KB 结果这些字段为空）
+            name = m.get("name", "")
+            if not m.get("benefits"):
+                m["benefits"] = get_benefit_text(name)
+            if not m.get("pitfalls"):
+                is_team = "团队" in str(m.get("participation_type", ""))
+                is_free = m.get("is_free", True)
+                fee = m.get("fee_amount", "")
+                m["pitfalls"] = get_pitfall_text(name, is_team, is_free, fee)
+            unique_kb.append(m)
+
+        # KB 结果追加到前面
+        competitions = unique_kb + competitions
+
+        # 整体重新按 match_score 排序（KB 结果分数通常 50-95，LLM 结果分数通常也在这个范围）
+        competitions = sorted(
+            competitions,
+            key=lambda m: int(_val(m, "match_score", "s") or 0),
+            reverse=True
+        )
+
     return {
         "success": True,
         "open": competitions,
         "closed": closed_list,
         "resources": resources,
         "search_queries_used": queries,
+        "kb_matches_count": len(kb_matches) if kb_matches else 0,
         "tips": TIPS,
         "myths": MYTHS,
     }

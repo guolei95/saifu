@@ -1,7 +1,39 @@
 """
-竞赛常识库 — 硬编码的竞赛数据和校验函数。
-数据来源：0503-match_competitions.py，经整理后直接复用。
+竞赛常识库 — 84 项教育部 A 类竞赛 + 分类/好处/避坑/案例/标签。
+竞赛数据从 84项A类竞赛知识库.json 加载；静态内容（好处/避坑/案例等）保留在此文件。
 """
+
+import json
+import os
+import re as _re
+
+# ═══════════════════════════════════════════════════════════
+# 0. 加载 84 项 A 类竞赛数据
+# ═══════════════════════════════════════════════════════════
+_KB_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "84项A类竞赛知识库.json")
+_KB_PATH = os.path.normpath(os.path.abspath(_KB_PATH))
+
+try:
+    with open(_KB_PATH, "r", encoding="utf-8") as f:
+        _kb_raw = json.load(f)
+    # 转为 dict，key 为竞赛名称（用于模糊匹配）
+    COMPETITION_FACTS: dict[str, dict] = {}
+    for entry in _kb_raw:
+        names = [entry.get("name", "")]
+        alt = entry.get("alt_name", "")
+        if alt:
+            for a in alt.split(";"):
+                a = a.strip()
+                if a:
+                    names.append(a)
+        for n in names:
+            if n:
+                COMPETITION_FACTS[n] = entry
+    print(f"[knowledge_base] 已加载 {len(_kb_raw)} 条 A 类竞赛数据")
+except Exception as e:
+    print(f"[knowledge_base] 加载 JSON 失败: {e}，降级到内置 9 条")
+    # 降级：内置备用
+    COMPETITION_FACTS = {}  # 下面会重新构建
 
 # ═══════════════════════════════════════════════════════════
 # 1. 竞赛分类速查（两类：学校/教育部类 vs 企业类）
@@ -68,9 +100,11 @@ FOCUS_LABELS = {
 }
 
 # ═══════════════════════════════════════════════════════════
-# 5. 竞赛常识库（9个热门竞赛的权威信息）
+# 5. 竞赛常识库（从 JSON 加载 84 条，降级时用内置 9 条）
 # ═══════════════════════════════════════════════════════════
-COMPETITION_FACTS = {
+if not COMPETITION_FACTS:
+    # 降级内置（仅 JSON 加载失败时使用）
+    COMPETITION_FACTS = {
     "蓝桥杯": {
         "official_url": "https://dasai.lanqiao.cn",
         "报名窗口": "前一年10月—12月（学校统一报名）；补报至当年3月",
@@ -256,15 +290,30 @@ def get_pitfall_text(name: str, is_team: bool, is_free: bool, fee: str) -> str:
 
 
 def find_fact_match(name: str) -> dict | None:
-    """在 COMPETITION_FACTS 中模糊匹配竞赛名。"""
+    """在 COMPETITION_FACTS 中模糊匹配竞赛名（双向包含 + 归一化回退）。"""
     name_lower = name.lower()
     best_key = None
     best_len = 0
+
+    # 第一轮：双向包含（输入包含键名，或键名包含输入）
     for key in COMPETITION_FACTS:
-        if key.lower() in name_lower:
-            if len(key) > best_len:
-                best_len = len(key)
+        kl = key.lower()
+        if kl in name_lower or name_lower in kl:
+            if len(kl) > best_len:
+                best_len = len(kl)
                 best_key = key
+
+    # 第二轮：字母数字归一化匹配（回退）
+    if not best_key:
+        def _norm(s):
+            return _re.sub(r'[^a-z0-9一-鿿]', '', s.lower())
+        nn = _norm(name_lower)
+        for key in COMPETITION_FACTS:
+            nk = _norm(key)
+            if nk == nn or (len(nk) >= 4 and nk in nn) or (len(nn) >= 4 and nn in nk):
+                best_key = key
+                break
+
     if best_key:
         return COMPETITION_FACTS[best_key]
     return None
@@ -273,21 +322,22 @@ def find_fact_match(name: str) -> dict | None:
 def enrich_with_facts(competition: dict) -> dict:
     """用内置常识库修正/补充竞赛信息。
 
-    对于 COMPETITION_FACTS 中存在的竞赛：
-    - official_url: 用已知正确值覆盖
-    - deadline_reference: 补全时间规律
-    - notes: 追加备注
-    - fee_amount / participation_type: 常识库补充
+    从 84 项 A 类竞赛 JSON 读取：url, timing, format, work_type, requirements, fee, form, note, track 等。
     """
     facts = find_fact_match(competition.get("name", ""))
+    if not facts:
+        # 尝试用全称匹配
+        alt = competition.get("full_name") or competition.get("alt_name", "")
+        if alt:
+            facts = find_fact_match(alt)
     if not facts:
         return competition
 
     competition["_verified_by_facts"] = True
 
-    # 官网修正
-    known_url = facts.get("official_url", "").rstrip("/")
-    comp_url = competition.get("official_url", "").rstrip("/")
+    # --- 官网修正 ---
+    known_url = (facts.get("url") or facts.get("official_url") or "").rstrip("/")
+    comp_url = (competition.get("official_url") or "").rstrip("/")
     if known_url and known_url != comp_url:
         old_url = competition.get("official_url", "")
         if old_url and old_url not in ("未知", "无", ""):
@@ -297,42 +347,52 @@ def enrich_with_facts(competition: dict) -> dict:
     elif known_url and known_url == comp_url:
         competition["_url_verified"] = True
 
-    # 时间规律补充
-    dl_ref_parts = []
-    if "报名窗口" in facts:
-        dl_ref_parts.append(f"报名: {facts['报名窗口']}")
-    if "比赛时间" in facts:
-        dl_ref_parts.append(f"比赛: {facts['比赛时间']}")
-    if "省赛时间" in facts:
-        dl_ref_parts.append(f"省赛: {facts['省赛时间']}")
-    if "时间线" in facts:
-        dl_ref_parts.append(facts['时间线'])
-    if dl_ref_parts:
-        existing = competition.get("deadline_reference", "")
-        if existing and existing not in ("未知", "无", ""):
-            competition["deadline_reference"] = f"{existing} | 📌 {', '.join(dl_ref_parts)}"
+    # --- 时间规律补充 ---
+    timing = facts.get("timing", "")
+    if timing:
+        existing_dl = competition.get("deadline_reference", "")
+        if existing_dl and existing_dl not in ("未知", "无", ""):
+            competition["deadline_reference"] = f"{existing_dl} | 📌 {timing}"
         else:
-            competition["deadline_reference"] = ", ".join(dl_ref_parts)
+            competition["deadline_reference"] = timing
 
-    # 备注追加
-    if "备注" in facts:
-        existing_notes = competition.get("notes", "")
-        fact_note = facts["备注"]
-        if fact_note and fact_note not in (existing_notes or ""):
-            competition["notes"] = f"{existing_notes} | 📌 {fact_note}".strip(" |")
+    # --- 费用补充 ---
+    fee = facts.get("fee", "")
+    if fee and not competition.get("fee_amount"):
+        competition["fee_amount"] = fee
+        competition["is_free"] = (fee == "免费")
 
-    # 费用 / 参赛形式补充
-    if "报名费" in facts and not competition.get("fee_amount"):
-        competition["fee_amount"] = facts["报名费"]
-        competition["is_free"] = (facts["报名费"] == "免费")
-    if "参赛形式" in facts and not competition.get("participation_type"):
-        comp_type = facts["参赛形式"]
-        if "团队" in comp_type:
+    # --- 参赛形式补充 ---
+    form = facts.get("form", "")
+    if form and not competition.get("participation_type"):
+        if "团队" in form:
             competition["participation_type"] = "团队"
             competition["registration_form"] = "团队"
-        elif "个人" in comp_type:
+        elif "个人" in form:
             competition["participation_type"] = "个人"
             competition["registration_form"] = "个人"
+
+    # --- 备注/备注补充 ---
+    note = facts.get("note", "")
+    if note:
+        existing_notes = competition.get("notes", "")
+        if note not in (existing_notes or ""):
+            competition["notes"] = f"{existing_notes} | 📌 {note}".strip(" |")
+
+    # --- 赛道/组别补充到 desc ---
+    extra_desc_parts = []
+    for field, label in [("track", "赛道"), ("group", "组别"), ("category", "类别")]:
+        val = facts.get(field, "")
+        if val and val not in competition.get("desc", ""):
+            extra_desc_parts.append(f"{label}: {val}")
+    if extra_desc_parts:
+        existing_desc = competition.get("desc", "")
+        competition["desc"] = f"{existing_desc} | {'; '.join(extra_desc_parts)}".strip(" |")
+
+    # --- 参赛要求补充 ---
+    req = facts.get("requirements", "")
+    if req and not competition.get("requirements_text"):
+        competition["requirements_text"] = req
 
     return competition
 
@@ -371,3 +431,188 @@ def find_related_case(name: str) -> dict | None:
             best_score = score
             best = case
     return best if best_score > 0 else None
+
+
+# ═══════════════════════════════════════════════════════════
+# 本地优先匹配 — 从 84 项 A 类知识库中匹配（不联网，不用 LLM）
+# ═══════════════════════════════════════════════════════════
+
+def _extract_profile_keywords(profile: dict) -> set[str]:
+    """从学生画像提取有意义的搜索关键词（已分词、小写）。"""
+    keywords: set[str] = set()
+
+    for field in ["major", "interests", "skills", "other_skills"]:
+        text = str(profile.get(field, "")).strip()
+        if text:
+            for word in _re.split(r'[,，、\s/()（）]+', text):
+                word = word.strip().lower()
+                if len(word) >= 2:
+                    keywords.add(word)
+
+    for d in profile.get("tech_directions", []) or []:
+        d = str(d).strip().lower()
+        if len(d) >= 2:
+            keywords.add(d)
+
+    for g in profile.get("goals", []) or []:
+        g = str(g).strip()
+        # 目标 → 扩展关键词
+        goal_words = {
+            "保研加分": ["保研", "综测", "加分"],
+            "求职直通": ["企业", "offer", "直通", "实习"],
+            "能力锻炼": ["实践", "实训", "项目"],
+            "拿奖": ["获奖", "获奖率"],
+        }
+        keywords.update(goal_words.get(g, [g]))
+
+    # 移除太短或太泛的词
+    stop_words = {"的", "了", "是", "在", "和", "与", "或", "我", "你", "他", "她",
+                  "有", "不", "都", "要", "也", "就", "能", "会", "可以", "这个",
+                  "那个", "一个", "什么", "怎么", "哪些", "他们", "我们"}
+    keywords -= stop_words
+
+    return keywords
+
+
+def _kb_entry_to_result(entry: dict, score: int, hit_count: int) -> dict:
+    """将知识库条目转为匹配结果 dict（与 LLM 输出格式兼容）。"""
+    name = entry.get("name", "")
+    fee = entry.get("fee", "")
+    form_val = entry.get("form", "")
+    is_team = "团队" in str(form_val)
+    url = entry.get("url", "")
+
+    # 描述：格式说明（截断到 150 字）+ 作品类型摘要
+    fmt = str(entry.get("format", ""))
+    wt = str(entry.get("work_type", ""))
+    desc_base = fmt if len(fmt) > 20 else wt
+    desc = desc_base[:150]
+
+    # 推荐指数
+    if score >= 88:
+        rec_idx = 5
+    elif score >= 80:
+        rec_idx = 4
+    elif score >= 70:
+        rec_idx = 3
+    else:
+        rec_idx = 2
+
+    return {
+        "type": "competition",
+        "name": name,
+        "match_score": score,
+        "match_reason": (
+            f"专业匹配度:关键词命中{hit_count}个A类竞赛;"
+            "年级/时间合适度:待确认;兴趣/目标契合度:A类优先推荐"
+        ),
+        "cat": "🏫 学校/教育部类",
+        "benefits": "",
+        "pitfalls": "",
+        "recommend_index": rec_idx,
+        "registration_form": "团队" if is_team else "个人",
+        "registration_url": url,
+        "official_url": url,
+        "registration_deadline": "未知",
+        "suitable_majors": "",
+        "cross_school_allowed": True,
+        "participation_type": "团队" if is_team else "个人",
+        "is_free": (fee == "免费" or fee == ""),
+        "fee_amount": fee if fee else "未知",
+        "notes": entry.get("note", ""),
+        "source_url": url,
+        "source_type": "官方",
+        "desc": desc,
+        "deadline_reference": entry.get("timing", ""),
+        "focus": "保研加分,拿奖率高",
+        "_from_kb": True,
+        "_kb_id": entry.get("id"),
+    }
+
+
+def local_match_from_kb(profile: dict, top_n: int = 15) -> list[dict]:
+    """从 84 项 A 类竞赛知识库中本地匹配（不联网，不用 LLM）。
+
+    匹配策略：
+    1. 从学生画像提取关键词（专业/兴趣/技能/目标）
+    2. 遍历 84 项竞赛，在 name + work_type + requirements 中查找关键词
+    3. 命中关键词越多分数越高，名称命中额外加分
+    4. 返回 top_n 条，按分数降序排列
+    """
+    keywords = _extract_profile_keywords(profile)
+    if not keywords:
+        return []
+
+    seen_ids: set = set()
+    scored: list[tuple[dict, int, int]] = []  # (entry, score, hit_count)
+
+    for key, entry in COMPETITION_FACTS.items():
+        cid = entry.get("id")
+        if cid in seen_ids:
+            continue
+        seen_ids.add(cid)
+
+        # 构建竞赛搜索文本
+        comp_text = " ".join([
+            str(entry.get("name", "")),
+            str(entry.get("work_type", "")),
+            str(entry.get("requirements", "")),
+        ]).lower()
+
+        # 统计命中关键词
+        hits = 0
+        name_hits = 0
+        comp_name_lower = str(entry.get("name", "")).lower()
+        for kw in keywords:
+            if kw in comp_text:
+                hits += 1
+                if kw in comp_name_lower:
+                    name_hits += 1
+
+        if hits == 0:
+            continue
+
+        # 计分：基础 50 + 每命中 8 分 + 名称命中额外 5 分
+        score = min(50 + hits * 8 + name_hits * 5, 95)
+        scored.append((entry, score, hits))
+
+    # 按分数排序
+    scored.sort(key=lambda x: x[1], reverse=True)
+
+    # 转换为结果 dict
+    results = []
+    for entry, score, hits in scored[:top_n]:
+        results.append(_kb_entry_to_result(entry, score, hits))
+
+    return results
+
+
+def get_kb_competition_list() -> str:
+    """生成 84 项 A 类竞赛的紧凑列表文本，用于注入 LLM prompt。
+
+    返回值按编号排列，格式为「序号. 竞赛名（别称）」。
+    """
+    seen_ids: set = set()
+    lines: list[str] = []
+
+    for key, entry in COMPETITION_FACTS.items():
+        cid = entry.get("id")
+        if cid in seen_ids:
+            continue
+        seen_ids.add(cid)
+
+        name = entry.get("name", key)
+        alt = entry.get("alt_name", "")
+        timing = entry.get("timing", "")
+
+        if alt:
+            line = f"{cid}. {name}（{alt}）— {timing}"
+        else:
+            line = f"{cid}. {name} — {timing}"
+
+        lines.append(line)
+
+    # 按 id 排序
+    lines.sort(key=lambda x: int(x.split(".")[0]) if x.split(".")[0].isdigit() else 999)
+
+    return "\n".join(lines)

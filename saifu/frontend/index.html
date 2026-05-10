@@ -104,7 +104,7 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="nav-inner">
     <a href="#" class="nav-brand">🏆 赛赋 SaiFu</a>
     <span class="nav-tag">智能竞赛匹配 · 覆盖全学科</span>
-    <button class="btn btn-outline btn-sm" onclick="showContactModal()" style="margin-left:auto;">📩 联系我</button>
+    <button class="btn btn-primary btn-contact" onclick="showContactModal()" style="margin-left:auto;">📩 联系我</button>
   </div>
 </nav>
 
@@ -655,7 +655,7 @@ textarea { resize: vertical; min-height: 60px; }
     </div>
     <div class="contact-qr">
       <img src="images/wechat-qr.jpg" alt="微信二维码" style="max-width:200px;border-radius:8px;">
-      <p style="font-size:12px;color:#999;margin-top:8px;">扫码添加，备注「竞赛匹配」</p>
+      <p style="font-size:12px;color:#999;margin-top:8px;">扫码添加，备注「赛赋」</p>
     </div>
   </div>
 </div>
@@ -679,6 +679,15 @@ textarea { resize: vertical; min-height: 60px; }
 .contact-label { color: #666; }
 .contact-value { font-weight: 600; color: #2c3e50; }
 .contact-qr { border-top: 1px solid #eee; padding-top: 16px; }
+
+/* 联系我按钮呼吸动画 */
+.btn-contact {
+  animation: contactPulse 2.5s ease-in-out infinite;
+}
+@keyframes contactPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); box-shadow: 0 0 12px rgba(91,106,240,0.35); }
+}
 </style>
 
 <!-- ========== 主 JS ========== -->

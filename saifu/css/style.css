@@ -250,9 +250,64 @@ input[type="text"]:focus, select:focus, textarea:focus {
   font-size: 12px; color: var(--text-secondary);
 }
 
-/* ── 响应式 ── */
+/* ── 响应式：平板 ── */
 @media (max-width: 768px) {
   .card-grid { grid-template-columns: 1fr; }
   .container { padding: 12px 10px; }
   .btn-match { width: 100%; font-size: 16px; padding: 14px; }
+}
+
+/* ── 响应式：手机端 (≤480px) ── */
+@media (max-width: 480px) {
+  /* 导航栏 — 堆叠 + 缩小 */
+  .nav-inner {
+    flex-wrap: wrap; justify-content: center; gap: 8px;
+  }
+  .nav-brand { font-size: 16px; }
+  .nav-tag { font-size: 11px; padding: 2px 8px; }
+  .navbar { padding: 10px 12px; }
+  .nav-inner .btn-contact {
+    margin-left: 0; font-size: 12px; padding: 6px 14px;
+  }
+
+  /* 容器 */
+  .container { padding: 10px 8px; }
+
+  /* 进度条 */
+  .progress-wrap { padding: 12px 14px; }
+
+  /* 表单区块 */
+  .section-header { padding: 12px 14px; }
+  .section-body { padding: 14px; }
+
+  /* 选项标签 — 触摸友好 */
+  .cb-label {
+    padding: 8px 14px; font-size: 14px; min-height: 44px;
+  }
+
+  /* 输入框 — 防 iOS 自动缩放 */
+  input[type="text"], input[type="url"], textarea, select {
+    font-size: 16px;
+  }
+
+  /* 匹配按钮 */
+  .match-hint { font-size: 12px; }
+
+  /* 结果卡片 */
+  .result-title { font-size: 16px; }
+  .card-header { padding: 12px 14px; }
+  .card-body { padding: 10px 14px; }
+  .card-footer { padding: 10px 14px; }
+
+  /* 资源列表 */
+  .resource-item { padding: 10px 14px; }
+
+  /* 加载卡片 */
+  .loading-card { padding: 24px 16px; }
+
+  /* 错误卡片 */
+  .error-card { padding: 24px 16px; }
+
+  /* 小贴士 */
+  .tips-card { padding: 16px 14px; }
 }

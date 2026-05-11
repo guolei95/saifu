@@ -145,7 +145,7 @@ def _build_research_prompt(user_data: dict) -> str:
 
 
 def _kb_result_to_recommendation(kb_item: dict) -> dict:
-    """将知识库匹配结果转为 research 格式的推荐条目。"""
+    """将知识库匹配结果转为 research 格式的推荐条目（含模板化 benefits/pitfalls/cat/desc）。"""
     # 截止日期：优先用 deadline_reference（如"每年5-8月"），其次用 registration_deadline
     deadline = (
         kb_item.get("deadline_reference") or
@@ -159,19 +159,31 @@ def _kb_result_to_recommendation(kb_item: dict) -> dict:
     if not fee or fee == "未知":
         fee = "免费"
     # 描述：用 desc（现已扩到 300 字，含赛制流程+作品类型）
-    desc = kb_item.get("desc", "")[:200]
+    desc = kb_item.get("desc", "")[:300]
     if not desc:
         desc = "A类学科竞赛，请查看官网了解备赛要求"
     # 评分
     score = int(kb_item.get("match_score", 75))
+    # 类别
+    cat = kb_item.get("cat", "🏫 学校/教育部类")
+    # 推荐指数
+    rec_idx = kb_item.get("recommend_index", 4)
+    # benefits/pitfalls（从 KB 带过来，后面会补充）
+    benefits = kb_item.get("benefits", "")
+    pitfalls = kb_item.get("pitfalls", "")
 
     return {
         "name": kb_item.get("name", ""),
+        "cat": cat,
         "level": "国家级",  # 84项A类竞赛均为国家级
+        "recommend_index": rec_idx,
         "deadline": deadline,
         "form": form,
         "fee": fee,
+        "desc": desc,
         "reason": kb_item.get("match_reason", "A类赛事，与你的专业和技能匹配"),
+        "benefits": benefits,
+        "pitfalls": pitfalls,
         "preparation": desc,
         "match_score": score,
         "focus": kb_item.get("focus", "保研加分,拿奖率高"),
@@ -270,10 +282,10 @@ def run_research(user_data: dict) -> dict:
 
     # 简易名称归一化（用于跨 KB/LLM 去重匹配）
     def _norm_name(n):
-        import re
+        import re as _re
         n = n.lower().strip()
-        n = re.sub(r'[（(][^）)]*[）)]', '', n)
-        n = re.sub(r'[]「」『』""''""（）()[【】《》、，。；：！？·|/@#$%^&*+=~` _-]+', '', n)
+        n = _re.sub(r'[（(][^）)]*[）)]', '', n)
+        n = _re.sub(r'[]「」『』""''""（）()[【】《》、，。；：！？·|/@#$%^&*+=~` _-]+', '', n)
         return n
 
     # 构建 KB 归一化名称 → KB 条目的映射
@@ -296,7 +308,7 @@ def run_research(user_data: dict) -> dict:
         # 如果 KB 中有同名竞赛，用 KB 事实数据补全 LLM 缺失字段
         if n in kb_norm_map:
             kb_item = kb_norm_map[n]
-            for field in ["level", "deadline", "form", "fee", "official_url"]:
+            for field in ["level", "deadline", "form", "fee", "official_url", "desc", "cat", "recommend_index"]:
                 llm_val = str(r.get(field, "")).strip()
                 kb_val = str(kb_item.get(field, "")).strip()
                 if not llm_val or llm_val in ("未知", "待公布", "待查", "", "None"):
@@ -315,6 +327,32 @@ def run_research(user_data: dict) -> dict:
 
     # ── 步骤 4：用知识库 JSON 补齐所有结果的缺失字段 ──
     merged_recs = [enrich_with_facts(m) for m in merged_recs]
+
+    # ── 步骤 5：为所有结果填充模板字段（benefits/pitfalls/cat/recommend_index）──
+    for r in merged_recs:
+        # 类别标签
+        if not r.get("cat"):
+            r["cat"] = classify_competition(r.get("name", ""))
+        # 推荐指数（从 match_score 推算）
+        if not r.get("recommend_index"):
+            score = r.get("match_score", 70)
+            if score >= 90:
+                r["recommend_index"] = 5
+            elif score >= 80:
+                r["recommend_index"] = 4
+            elif score >= 70:
+                r["recommend_index"] = 3
+            else:
+                r["recommend_index"] = 2
+        # 为什么参加
+        if not r.get("benefits"):
+            r["benefits"] = get_benefit_text(r.get("name", ""), user_data)
+        # 注意事项
+        if not r.get("pitfalls"):
+            r["pitfalls"] = get_pitfall_text(r.get("name", ""), user_data)
+        # 竞赛内容描述（desc）
+        if not r.get("desc"):
+            r["desc"] = r.get("preparation", "")
 
     result["recommendations"] = merged_recs
     result["kb_matched_count"] = len(kb_recommendations)

@@ -1025,7 +1025,7 @@ function renderResearchResults(data) {
 }
 
 /**
- * 构建调研竞赛卡片（适配调研结果格式）
+ * 构建调研竞赛卡片（适配完整模板格式：类别+星级+竞赛内容+匹配理由+为什么参加+注意事项）
  */
 function buildResearchCard(comp, index) {
   const name = comp.name || '未知竞赛';
@@ -1038,6 +1038,11 @@ function buildResearchCard(comp, index) {
   const preparation = comp.preparation || '';
   const focus = comp.focus || '';
   const officialUrl = comp.official_url || '';
+  const cat = comp.cat || '';           // 类别标签
+  const desc = comp.desc || '';         // 竞赛内容
+  const benefits = comp.benefits || '';  // 为什么参加
+  const pitfalls = comp.pitfalls || '';  // 注意事项
+  const recIdx = comp.recommend_index || 3; // 推荐指数 (1-5)
 
   // 焦点标签
   let focusLabels = '';
@@ -1049,6 +1054,15 @@ function buildResearchCard(comp, index) {
     else if (f.includes('锻炼')) focusLabels += '<span class="card-tag tag-focus">💪能力锻炼</span> ';
   });
 
+  // 类别标签
+  const catTag = cat ? '<span class="card-tag tag-cat">' + escHtml(cat) + '</span> ' : '';
+
+  // 推荐星级
+  const stars = '⭐'.repeat(Math.min(recIdx, 5));
+  const starLabels = ['', '不太推荐', '可以尝试', '比较推荐', '非常推荐', '强烈推荐'];
+  const starLabel = starLabels[Math.min(recIdx, 5)] || '';
+  const starHtml = stars + (starLabel ? ' <small>' + starLabel + '</small>' : '');
+
   // 排名样式
   let topClass = '';
   if (index === 0) topClass = 'top-1';
@@ -1056,8 +1070,11 @@ function buildResearchCard(comp, index) {
   else if (index === 2) topClass = 'top-3';
 
   // 免费标识
-  const feeIcon = fee === '免费' ? '🆓' : '💰';
+  const feeIcon = (fee === '免费' || fee === '0') ? '🆓' : '💰';
   const feeText = feeIcon + ' ' + fee;
+
+  // 参赛形式精简
+  const formShort = form.replace(/\(.*\)/, '').trim(); // "团队(3人)" → "团队"
 
   return `
     <div class="comp-card ${topClass}">
@@ -1065,15 +1082,18 @@ function buildResearchCard(comp, index) {
         <div class="card-score">${score} <small>分</small></div>
         <div class="card-name">${escHtml(name)}</div>
         <div class="card-meta">
-          ${focusLabels}
+          ${catTag}${focusLabels}
         </div>
+        <div class="card-stars" style="font-size:15px;margin-top:4px;">${starHtml}</div>
       </div>
       <div class="card-body">
+        ${desc ? '<p class="label">📝 竞赛内容</p><p>' + escHtml(desc).replace(/\n/g, '<br>') + '</p>' : ''}
         ${reason ? '<p class="label">📝 匹配理由</p><p>' + escHtml(reason) + '</p>' : ''}
-        ${preparation ? '<p class="label">🔧 需要准备</p><p>' + escHtml(preparation) + '</p>' : ''}
+        ${benefits ? '<p class="label">📝 为什么参加</p><p>' + escHtml(benefits).replace(/\n/g, '<br>') + '</p>' : ''}
+        ${pitfalls ? '<p class="label">⚠ 注意事项</p><p>' + escHtml(pitfalls).replace(/\n/g, '<br>') + '</p>' : ''}
       </div>
       <div class="card-footer">
-        <span>📌 ${escHtml(level)} | ${escHtml(form)}</span>
+        <span>📌 ${escHtml(level)} | ${escHtml(formShort)}</span>
         <span>${feeText}</span>
         <span>⏰ 截止: ${escHtml(deadline)}</span>
         ${officialUrl && officialUrl !== '待查' ? '<span>🔗 <a href="' + escHtml(officialUrl) + '" target="_blank">官网</a></span>' : ''}

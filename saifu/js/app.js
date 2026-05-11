@@ -8,7 +8,7 @@
 // ═══════════════════════════════════════
 const API_BASE_URL = window.location.hostname === 'localhost'
   ? 'http://localhost:8000'
-  : 'https://d39e9f0f0579b5.lhr.life';
+  : 'https://15ea226d53e4ef.lhr.life';
 
 const MATCH_TIMEOUT = 300000; // 300 秒超时（搜索+多轮AI调用需要时间）
 

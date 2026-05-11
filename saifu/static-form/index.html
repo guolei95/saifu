@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>赛赋 SaiFu · 竞赛匹配画像</title>
+<style>
+/* ══════════════════════════════════════════
+   纯静态表单 - 赛赋 SaiFu 用户画像收集
+   自包含，无外部依赖，微信/浏览器均可打开
+   ══════════════════════════════════════════ */
+:root {
+  --bg: #f8f9fa; --card-bg: #fff; --text-main: #2c3e50; --text-secondary: #666;
+  --border: #e0e4e8; --accent: #5b6af0; --accent-light: #eef0ff;
+  --accent-hover: #4a55d4; --required: #e74c3c; --optional: #27ae60;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08); --radius: 10px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--bg); color: var(--text-main); line-height: 1.6;
+  padding-bottom: 120px; -webkit-text-size-adjust: 100%;
+}
+
+/* ── 顶部 ── */
+.navbar {
+  background: #fff; border-bottom: 1px solid var(--border); padding: 12px 16px;
+  display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 100;
+}
+.navbar h1 { font-size: 17px; font-weight: 700; color: var(--text-main); white-space: nowrap; }
+.navbar .tag { font-size: 11px; color: #999; }
+.container { max-width: 680px; margin: 0 auto; padding: 16px; }
+
+/* ── 进度条 ── */
+.progress-wrap { margin-bottom: 20px; }
+.progress-info { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; }
+.progress-track { height: 4px; background: #e0e4e8; border-radius: 2px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.3s; width: 0%; }
+
+/* ── 区块 ── */
+.section { background: #fff; border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 14px; overflow: hidden; }
+.section-header { padding: 14px 20px; cursor: pointer; display: flex; align-items: center; gap: 10px; user-select: none; transition: background 0.15s; -webkit-tap-highlight-color: transparent; }
+.section-header:active { background: #f5f6f8; }
+.section.open .section-header { border-bottom: 1px solid var(--border); }
+.section-num { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+.num-required { background: #ffeaea; color: var(--required); }
+.num-optional { background: #e8f8ef; color: var(--optional); }
+.section-title { flex: 1; font-size: 14px; font-weight: 600; }
+.section-badge { font-size: 10px; padding: 2px 8px; border-radius: 10px; }
+.section-arrow { font-size: 12px; color: #999; transition: transform 0.3s; }
+.section.open .section-arrow { transform: rotate(180deg); }
+.section-body { display: none; padding: 20px; }
+.section.open .section-body { display: block; }
+
+/* ── 字段 ── */
+.field { margin-bottom: 16px; }
+.field:last-child { margin-bottom: 0; }
+.field-label { font-size: 13px; font-weight: 600; color: var(--text-main); margin-bottom: 8px; display: block; }
+.field-label .required-star { color: var(--required); margin-left: 2px; }
+.field-hint { font-size: 12px; color: #999; font-weight: 400; margin-left: 6px; }
+input[type="text"], input[type="url"], textarea, select {
+  width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px;
+  font-size: 14px; font-family: inherit; color: var(--text-main); background: #fafbfc;
+  transition: border 0.2s, box-shadow 0.2s; -webkit-appearance: none;
+}
+input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
+textarea { resize: vertical; min-height: 60px; }
+
+/* ── 选项标签 ── */
+.option-group { display: flex; flex-wrap: wrap; gap: 6px; }
+.option-item { display: flex; align-items: center; gap: 6px; }
+.option-item input[type="checkbox"], .option-item input[type="radio"] { display: none; }
+.option-tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 6px 12px; border: 1px solid var(--border); border-radius: 20px;
+  font-size: 13px; cursor: pointer; transition: all 0.15s; background: #fafbfc;
+  user-select: none; -webkit-tap-highlight-color: transparent;
+}
+.option-tag:active { background: var(--accent-light); }
+.option-item input:checked + .option-tag { background: var(--accent); color: #fff; border-color: var(--accent); }
+.option-group.radio-group .option-tag { border-radius: 6px; }
+
+/* ── 其他输入 ── */
+.inline-other { margin-top: 6px; display: none; }
+.inline-other.show { display: flex; gap: 8px; align-items: center; }
+.inline-other input { flex: 1; }
+.sub-field { margin-left: 24px; padding-left: 12px; border-left: 2px solid var(--border); }
+.category-label { font-size: 11px; color: #999; margin-bottom: 4px; }
+
+/* ── 按钮 ── */
+.btn {
+  padding: 8px 18px; border: none; border-radius: 6px; font-size: 14px; cursor: pointer;
+  font-weight: 500; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px;
+  font-family: inherit;
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:active { background: var(--accent-hover); }
+.btn-submit {
+  width: 100%; padding: 16px; border: none; border-radius: 12px; font-size: 18px; font-weight: 700;
+  color: #fff; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;
+  font-family: inherit; -webkit-tap-highlight-color: transparent;
+}
+.btn-submit.active { background: var(--accent); }
+.btn-submit.active:active { background: var(--accent-hover); transform: scale(0.98); }
+.btn-submit.disabled { background: #ccc; cursor: not-allowed; }
+.btn-copy {
+  width: 100%; padding: 14px; border: 2px solid var(--accent); border-radius: 12px;
+  font-size: 16px; font-weight: 600; color: var(--accent); background: #fff;
+  cursor: pointer; font-family: inherit; -webkit-tap-highlight-color: transparent;
+}
+.btn-copy:active { background: var(--accent-light); }
+
+/* ── 报告区 ── */
+.report-area { display: none; margin-top: 20px; }
+.report-card {
+  background: #fff; border-radius: var(--radius); box-shadow: var(--shadow); padding: 24px;
+}
+.report-title { font-size: 16px; font-weight: 700; color: var(--text-main); margin-bottom: 16px; text-align: center; }
+.report-text {
+  background: #f8f9fa; border: 1px solid var(--border); border-radius: 8px;
+  padding: 16px; font-size: 13px; line-height: 1.8; white-space: pre-wrap;
+  word-break: break-all; max-height: 400px; overflow-y: auto;
+  -webkit-user-select: all; user-select: all; font-family: "PingFang SC", "Microsoft YaHei", monospace;
+}
+.report-actions { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.copy-hint { font-size: 11px; color: #999; text-align: center; }
+
+/* ── Toast ── */
+.toast { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 12px 28px; border-radius: 24px; font-size: 14px; z-index: 2000; opacity: 0; pointer-events: none; transition: opacity 0.3s; white-space: nowrap; }
+.toast.show { opacity: 1; }
+.toast.success { background: #27ae60; }
+
+/* ── 移动端微调 ── */
+@media (max-width: 600px) {
+  .container { padding: 10px 8px; }
+  .section-body { padding: 14px; }
+  .option-tag { padding: 9px 14px; font-size: 14px; min-height: 44px; display: inline-flex; align-items: center; }
+  .navbar { padding: 10px 12px; }
+  .navbar h1 { font-size: 15px; }
+  .btn-submit { font-size: 16px; padding: 14px; }
+}
+</style>
+</head>
+<body>
+
+<!-- 顶部 -->
+<div class="navbar">
+  <h1>🏆 赛赋 SaiFu</h1>
+  <span class="tag">竞赛匹配画像</span>
+</div>
+
+<div class="container">
+
+  <!-- 进度条 -->
+  <div class="progress-wrap">
+    <div class="progress-info"><span>完成度</span><span id="progressPercent">0%</span></div>
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+  </div>
+
+  <!-- ═══════════════ 表单 ═══════════════ -->
+  <div id="formArea">
+    <form id="profileForm" onsubmit="return false;">
+
+    <!-- ═══ 一、基本信息 ═══ -->
+    <div class="section open" id="sec-basic">
+      <div class="section-header" onclick="toggleSection('sec-basic')">
+        <span class="section-num num-required">一</span>
+        <span class="section-title">基本信息</span>
+        <span class="section-badge badge-required" style="background:#ffeaea;color:var(--required);">⭐必填</span>
+        <span class="section-arrow">▼</span>
+      </div>
+      <div class="section-body">
+        <div class="field">
+          <label class="field-label">别名/称呼 <span class="required-star">*</span><span class="field-hint">方便小明识别你的报告，填真实姓名或微信昵称都行</span></label>
+          <input type="text" id="alias" placeholder="如：小明 / 张三" oninput="updateProgress()">
+        </div>
+        <div class="field">
+          <label class="field-label">学校 <span class="required-star">*</span></label>
+          <input type="text" id="school" placeholder="如：清华大学" oninput="updateProgress()">
+        </div>
+        <div class="field">
+          <label class="field-label">专业 <span class="required-star">*</span></label>
+          <input type="text" id="major" placeholder="如：计算机科学与技术" oninput="updateProgress()">
+        </div>
+        <div class="field">
+          <label class="field-label">年级 <span class="required-star">*</span></label>
+          <div class="option-group radio-group" id="grade-group">
+            <label class="option-item"><input type="radio" name="grade" value="大一" onchange="updateProgress()"><span class="option-tag">大一</span></label>
+            <label class="option-item"><input type="radio" name="grade" value="大二" onchange="updateProgress()"><span class="option-tag">大二</span></label>
+            <label class="option-item"><input type="radio" name="grade" value="大三" onchange="updateProgress()"><span class="option-tag">大三</span></label>
+            <label class="option-item"><input type="radio" name="grade" value="大四" onchange="updateProgress()"><span class="option-tag">大四</span></label>
+            <label class="option-item"><input type="radio" name="grade" value="研一" onchange="updateProgress()"><span class="option-tag">研一</span></label>
+            <label class="option-item"><input type="radio" name="grade" value="研二" onchange="updateProgress()"><span class="option-tag">研二</span></label>
+            <label class="option-item"><input type="radio" name="grade" value="研三" onchange="updateProgress()"><span class="option-tag">研三</span></label>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label">兴趣领域 <span class="required-star">*</span><span class="field-hint">可多选</span></label>
+          <div class="option-group" id="interests-group">
+            <label class="option-item"><input type="checkbox" name="interests" value="AI/大模型" onchange="updateProgress()"><span class="option-tag">AI/大模型</span></label>
+            <label class="option-item"><input type="checkbox" name="interests" value="Web开发" onchange="updateProgress()"><span class="option-tag">Web开发</span></label>
+            <label class="option-item"><input type="checkbox" name="interests" value="移动端/小程序" onchange="updateProgress()"><span class="option-tag">移动端/小程序</span></label>
+            <label class="option-item"><input type="checkbox" name="interests" value="数据分析" onchange="updateProgress()"><span class="option-tag">数据分析</span></label>
+            <label class="option-item"><input type="checkbox" name="interests" value="算法/数模" onchange="updateProgress()"><span class="option-tag">算法/数模</span></label>
+            <label class="option-item"><input type="checkbox" name="interests" value="硬件/嵌入式" onchange="updateProgress()"><span class="option-tag">硬件/嵌入式</span></label>
+            <label class="option-item"><input type="checkbox" name="interests" value="UI/设计" onchange="updateProgress()"><span class="option-tag">UI/设计</span></label>
+            <label class="option-item"><input type="checkbox" name="interests" value="产品/项目管理" onchange="updateProgress()"><span class="option-tag">产品/项目管理</span></label>
+            <label class="option-item"><input type="checkbox" name="interests" value="网络安全" onchange="updateProgress()"><span class="option-tag">网络安全</span></label>
+            <label class="option-item"><input type="checkbox" name="interests" value="视频/多媒体" onchange="updateProgress()"><span class="option-tag">视频/多媒体</span></label>
+            <label class="option-item"><input type="checkbox" name="interests" value="写作/文案" onchange="updateProgress()"><span class="option-tag">写作/文案</span></label>
+            <label class="option-item"><input type="checkbox" name="interests" value="__OTHER__" onchange="toggleOther('interests-other');updateProgress()"><span class="option-tag">其他</span></label>
+          </div>
+          <div class="inline-other" id="interests-other-wrap">
+            <input type="text" id="interests-other" placeholder="请输入其他兴趣领域" oninput="updateProgress()">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ 二、参赛目标 ═══ -->
+    <div class="section open" id="sec-goals">
+      <div class="section-header" onclick="toggleSection('sec-goals')">
+        <span class="section-num num-required">二</span>
+        <span class="section-title">参赛目标</span>
+        <span class="section-badge badge-required" style="background:#ffeaea;color:var(--required);">⭐必填</span>
+        <span class="section-arrow">▼</span>
+      </div>
+      <div class="section-body">
+        <div class="field">
+          <label class="field-label">你的参赛目标是什么？<span class="field-hint">可多选</span></label>
+          <div class="option-group" id="goals-group">
+            <label class="option-item"><input type="checkbox" name="goals" value="保研加分" onchange="updateProgress()"><span class="option-tag">保研加分</span></label>
+            <label class="option-item"><input type="checkbox" name="goals" value="求职直通" onchange="updateProgress()"><span class="option-tag">求职直通</span></label>
+            <label class="option-item"><input type="checkbox" name="goals" value="拿奖金" onchange="updateProgress()"><span class="option-tag">拿奖金</span></label>
+            <label class="option-item"><input type="checkbox" name="goals" value="丰富简历" onchange="updateProgress()"><span class="option-tag">丰富简历</span></label>
+            <label class="option-item"><input type="checkbox" name="goals" value="能力锻炼" onchange="updateProgress()"><span class="option-tag">能力锻炼</span></label>
+            <label class="option-item"><input type="checkbox" name="goals" value="__OTHER__" onchange="toggleOther('goals-other');updateProgress()"><span class="option-tag">其他</span></label>
+          </div>
+          <div class="inline-other" id="goals-other-wrap">
+            <input type="text" id="goals-other" placeholder="请输入其他目标" oninput="updateProgress()">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ 三、专业能力 ═══ -->
+    <div class="section open" id="sec-skills">
+      <div class="section-header" onclick="toggleSection('sec-skills')">
+        <span class="section-num num-required">三</span>
+        <span class="section-title">专业能力</span>
+        <span class="section-badge badge-required" style="background:#ffeaea;color:var(--required);">⭐必填</span>
+        <span class="section-arrow">▼</span>
+      </div>
+      <div class="section-body">
+        <div class="field">
+          <label class="field-label">专业大类 <span class="field-hint">帮助精准匹配本学科竞赛</span></label>
+          <div class="option-group radio-group" id="major-category-group">
+            <label class="option-item"><input type="radio" name="major-category" value="人文社科" onchange="updateProgress()"><span class="option-tag">人文社科</span></label>
+            <label class="option-item"><input type="radio" name="major-category" value="理科" onchange="updateProgress()"><span class="option-tag">理科</span></label>
+            <label class="option-item"><input type="radio" name="major-category" value="工科" onchange="updateProgress()"><span class="option-tag">工科</span></label>
+            <label class="option-item"><input type="radio" name="major-category" value="商科" onchange="updateProgress()"><span class="option-tag">商科</span></label>
+            <label class="option-item"><input type="radio" name="major-category" value="艺术设计" onchange="updateProgress()"><span class="option-tag">艺术设计</span></label>
+            <label class="option-item"><input type="radio" name="major-category" value="医学" onchange="updateProgress()"><span class="option-tag">医学</span></label>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label">核心技能 <span class="required-star">*</span><span class="field-hint">你最擅长的能力，写关键词即可</span></label>
+          <input type="text" id="core-skills" placeholder="如：Python编程、英语翻译、数据分析、市场调研、临床诊断、平面设计、数学建模" oninput="updateProgress()">
+        </div>
+        <div class="field">
+          <label class="field-label">技能领域 <span class="field-hint">可多选，覆盖全学科</span></label>
+          <div class="category-label">理/工科</div>
+          <div class="option-group" style="margin-bottom:10px;">
+            <label class="option-item"><input type="checkbox" name="tech-direction" value="AI应用/大模型" onchange="updateProgress()"><span class="option-tag">AI应用/大模型</span></label>
+            <label class="option-item"><input type="checkbox" name="tech-direction" value="Web前端" onchange="updateProgress()"><span class="option-tag">Web前端</span></label>
+            <label class="option-item"><input type="checkbox" name="tech-direction" value="Web后端" onchange="updateProgress()"><span class="option-tag">Web后端</span></label>
+            <label class="option-item"><input type="checkbox" name="tech-direction" value="移动端开发" onchange="updateProgress()"><span class="option-tag">移动端开发</span></label>
+            <label class="option-item"><input type="checkbox" name="tech-direction" value="数据分析" onchange="updateProgress()"><span class="option-tag">数据分析</span></label>
+            <label class="option-item"><input type="checkbox" name="tech-direction" value="算法竞赛" onchange="updateProgress()"><span class="option-tag">算法竞赛</span></label>
+            <label class="option-item"><input type="checkbox" name="tech-direction" value="硬件/嵌入式" onchange="updateProgress()"><span class="option-tag">硬件/嵌入式</span></label>
+            <label class="option-item"><input type="checkbox" name="tech-direction" value="数学建模" onchange="updateProgress()"><span class="option-tag">数学建模</span></label>
+            <label class="option-item"><input type="checkbox" name="tech-direction" value="物理/化学/生物实验" onchange="updateProgress()"><span class="option-tag">物理/化学/生物实验</span></label>
+            <label class="option-item"><input type="checkbox" name="tech-direction" value="网络安全" onchange="updateProgress()"><span class="option-tag">网络安全</span></label>
+          </div>
+          <div class="category-label">人文社科</div>
+          <div class="option-group" style="margin-bottom:10px;">
+            <label class="option-item"><input type="checkbox" name="tech-direction" value="写作与文案" onchange="updateProgress()"><span class="option-tag">写作与文案</span></label>
+            <label class="option-item"><input type="checkbox" name="tech-direction" value="翻译与外语" onchange="updateProgress()"><span class="option-tag">翻译与外语</span></label>
+            <label class="option-item"><input type="checkbox" name="tech-direction" value="社会调查与统计" onchange="updateProgress()"><span class="option-tag">社会调查与统计</span></label>
+            <label class="option-item"><input type="checkbox" name="tech-direction" value="新闻与传播" onchange="updateProgress()"><span class="option-tag">新闻与传播</span></label>
+            <label class="option-item"><input type="checkbox" name="tech-direction" value="法律与政策研究" onchange="updateProgress()"><span class="option-tag">法律与政策研究</span></label>
+            <label class="option-item"><input type="checkbox" name="tech-direction" value="教育教学" onchange="updateProgress()"><span class="option-tag">教育教学</span></label>
+            <label class="option-item"><input type="checkbox" name="tech-direction" value="哲学/历史研究" onchange="updateProgress()"><span class="option-tag">哲学/历史研究</span></label>
+          </div>
+          <div class="category-label">商科</div>
+          <div class="option-group" style="margin-bottom:10px;">
+            <label class="option-item"><input type="checkbox" name="tech-direction" value="市场营销" onchange="updateProgress()"><span class="option-tag">市场营销</span></label>
+            <label class="option-item"><input type="checkbox" name="tech-direction" value="商业策划" onchange="updateProgress()"><span class="option-tag">商业策划</span></label>
+            <label class="option-item"><input type="checkbox" name="tech-direction" value="财务分析" onchange="updateProgress()"><span class="option-tag">财务分析</span></label>
+            <label class="option-item"><input type="checkbox" name="tech-direction" value="金融建模" onchange="updateProgress()"><span class="option-tag">金融建模</span></label>
+            <label class="option-item"><input type="checkbox" name="tech-direction" value="案例分析" onchange="updateProgress()"><span class="option-tag">案例分析</span></label>
+            <label class="option-item"><input type="checkbox" name="tech-direction" value="产品/项目管理" onchange="updateProgress()"><span class="option-tag">产品/项目管理</span></label>
+          </div>
+          <div class="category-label">艺术设计</div>
+          <div class="option-group" style="margin-bottom:10px;">
+            <label class="option-item"><input type="checkbox" name="tech-direction" value="平面设计" onchange="updateProgress()"><span class="option-tag">平面设计</span></label>
+            <label class="option-item"><input type="checkbox" name="tech-direction" value="UI/UX设计" onchange="updateProgress()"><span class="option-tag">UI/UX设计</span></label>
+            <label class="option-item"><input type="checkbox" name="tech-direction" value="数字媒体/动画" onchange="updateProgress()"><span class="option-tag">数字媒体/动画</span></label>
+            <label class="option-item"><input type="checkbox" name="tech-direction" value="视频剪辑/摄影" onchange="updateProgress()"><span class="option-tag">视频剪辑/摄影</span></label>
+            <label class="option-item"><input type="checkbox" name="tech-direction" value="游戏开发" onchange="updateProgress()"><span class="option-tag">游戏开发</span></label>
+            <label class="option-item"><input type="checkbox" name="tech-direction" value="音乐/舞蹈/表演" onchange="updateProgress()"><span class="option-tag">音乐/舞蹈/表演</span></label>
+          </div>
+          <div class="category-label">医学</div>
+          <div class="option-group" style="margin-bottom:4px;">
+            <label class="option-item"><input type="checkbox" name="tech-direction" value="基础医学研究" onchange="updateProgress()"><span class="option-tag">基础医学研究</span></label>
+            <label class="option-item"><input type="checkbox" name="tech-direction" value="临床技能" onchange="updateProgress()"><span class="option-tag">临床技能</span></label>
+            <label class="option-item"><input type="checkbox" name="tech-direction" value="药学/中药学" onchange="updateProgress()"><span class="option-tag">药学/中药学</span></label>
+            <label class="option-item"><input type="checkbox" name="tech-direction" value="护理/康复" onchange="updateProgress()"><span class="option-tag">护理/康复</span></label>
+            <label class="option-item"><input type="checkbox" name="tech-direction" value="公共卫生" onchange="updateProgress()"><span class="option-tag">公共卫生</span></label>
+            <label class="option-item"><input type="checkbox" name="tech-direction" value="__OTHER__" onchange="toggleOther('tech-direction-other');updateProgress()"><span class="option-tag">其他</span></label>
+          </div>
+          <div class="inline-other" id="tech-direction-other-wrap">
+            <input type="text" id="tech-direction-other" placeholder="请输入其他技能领域" oninput="updateProgress()">
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label">常用工具/软件 <span class="field-hint">可多选</span></label>
+          <div class="option-group" id="tools-group" style="margin-bottom:4px;">
+            <label class="option-item"><input type="checkbox" name="tools" value="ChatGPT/Claude/Copilot等AI工具" onchange="updateProgress()"><span class="option-tag">AI工具</span></label>
+            <label class="option-item"><input type="checkbox" name="tools" value="Python/FastAPI/Flask" onchange="updateProgress()"><span class="option-tag">Python/FastAPI/Flask</span></label>
+            <label class="option-item"><input type="checkbox" name="tools" value="Vue/React" onchange="updateProgress()"><span class="option-tag">Vue/React</span></label>
+            <label class="option-item"><input type="checkbox" name="tools" value="MATLAB" onchange="updateProgress()"><span class="option-tag">MATLAB</span></label>
+            <label class="option-item"><input type="checkbox" name="tools" value="SPSS/Stata/R" onchange="updateProgress()"><span class="option-tag">SPSS/Stata/R</span></label>
+            <label class="option-item"><input type="checkbox" name="tools" value="MySQL/Redis" onchange="updateProgress()"><span class="option-tag">MySQL/Redis</span></label>
+            <label class="option-item"><input type="checkbox" name="tools" value="Git" onchange="updateProgress()"><span class="option-tag">Git</span></label>
+            <label class="option-item"><input type="checkbox" name="tools" value="Office/WPS高级应用" onchange="updateProgress()"><span class="option-tag">Office/WPS高级应用</span></label>
+            <label class="option-item"><input type="checkbox" name="tools" value="Adobe系列(PS/AI/PR/AE)" onchange="updateProgress()"><span class="option-tag">Adobe系列(PS/AI/PR/AE)</span></label>
+            <label class="option-item"><input type="checkbox" name="tools" value="Figma/墨刀/Canva" onchange="updateProgress()"><span class="option-tag">Figma/墨刀/Canva</span></label>
+            <label class="option-item"><input type="checkbox" name="tools" value="CAD/3D建模" onchange="updateProgress()"><span class="option-tag">CAD/3D建模</span></label>
+            <label class="option-item"><input type="checkbox" name="tools" value="__OTHER__" onchange="toggleOther('tools-other');updateProgress()"><span class="option-tag">其他</span></label>
+          </div>
+          <div class="inline-other" id="tools-other-wrap">
+            <input type="text" id="tools-other" placeholder="请输入其他工具/软件" oninput="updateProgress()">
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label">补充说明</label>
+          <textarea id="skills-note" placeholder="补充你的技能亮点、项目经验、证书等（选填）" oninput="updateProgress()"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ 四、时间投入 ═══ -->
+    <div class="section open" id="sec-time">
+      <div class="section-header" onclick="toggleSection('sec-time')">
+        <span class="section-num num-required">四</span>
+        <span class="section-title">时间投入</span>
+        <span class="section-badge badge-required" style="background:#ffeaea;color:var(--required);">⭐必填</span>
+        <span class="section-arrow">▼</span>
+      </div>
+      <div class="section-body">
+        <div class="field">
+          <label class="field-label">每周可投入 <span class="required-star">*</span></label>
+          <div class="option-group radio-group" id="weekly-hours-group">
+            <label class="option-item"><input type="radio" name="weekly-hours" value="每周少于5小时" onchange="updateProgress()"><span class="option-tag">&lt;5小时</span></label>
+            <label class="option-item"><input type="radio" name="weekly-hours" value="每周5-10小时" onchange="updateProgress()"><span class="option-tag">5-10小时</span></label>
+            <label class="option-item"><input type="radio" name="weekly-hours" value="每周10-15小时" onchange="updateProgress()"><span class="option-tag">10-15小时</span></label>
+            <label class="option-item"><input type="radio" name="weekly-hours" value="每周15-20小时" onchange="updateProgress()"><span class="option-tag">15-20小时</span></label>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label">空闲月份</label>
+          <div class="option-group" id="free-months-group" style="margin-bottom:8px;">
+            <label class="option-item"><input type="checkbox" name="free-months" value="全年都行" onchange="handleYearRound(this);updateProgress()"><span class="option-tag">全年都行</span></label>
+          </div>
+          <div id="specific-months-group" style="display:flex;flex-wrap:wrap;gap:6px;">
+            <label class="option-item"><input type="checkbox" name="free-months" value="1月" onchange="updateProgress()"><span class="option-tag">1月</span></label>
+            <label class="option-item"><input type="checkbox" name="free-months" value="2月" onchange="updateProgress()"><span class="option-tag">2月</span></label>
+            <label class="option-item"><input type="checkbox" name="free-months" value="3月" onchange="updateProgress()"><span class="option-tag">3月</span></label>
+            <label class="option-item"><input type="checkbox" name="free-months" value="4月" onchange="updateProgress()"><span class="option-tag">4月</span></label>
+            <label class="option-item"><input type="checkbox" name="free-months" value="5月" onchange="updateProgress()"><span class="option-tag">5月</span></label>
+            <label class="option-item"><input type="checkbox" name="free-months" value="6月" onchange="updateProgress()"><span class="option-tag">6月</span></label>
+            <label class="option-item"><input type="checkbox" name="free-months" value="7月" onchange="updateProgress()"><span class="option-tag">7月</span></label>
+            <label class="option-item"><input type="checkbox" name="free-months" value="8月" onchange="updateProgress()"><span class="option-tag">8月</span></label>
+            <label class="option-item"><input type="checkbox" name="free-months" value="9月" onchange="updateProgress()"><span class="option-tag">9月</span></label>
+            <label class="option-item"><input type="checkbox" name="free-months" value="10月" onchange="updateProgress()"><span class="option-tag">10月</span></label>
+            <label class="option-item"><input type="checkbox" name="free-months" value="11月" onchange="updateProgress()"><span class="option-tag">11月</span></label>
+            <label class="option-item"><input type="checkbox" name="free-months" value="12月" onchange="updateProgress()"><span class="option-tag">12月</span></label>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label">寒暑假可集中备赛</label>
+          <div class="option-group radio-group">
+            <label class="option-item"><input type="radio" name="holiday-ready" value="是" onchange="updateProgress()"><span class="option-tag">是</span></label>
+            <label class="option-item"><input type="radio" name="holiday-ready" value="否" onchange="updateProgress()"><span class="option-tag">否</span></label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ 五、参赛偏好 ═══ -->
+    <div class="section" id="sec-pref">
+      <div class="section-header" onclick="toggleSection('sec-pref')">
+        <span class="section-num num-optional">五</span>
+        <span class="section-title">参赛偏好</span>
+        <span class="section-badge badge-optional" style="background:#e8f8ef;color:var(--optional);">△选填</span>
+        <span class="section-arrow">▼</span>
+      </div>
+      <div class="section-body">
+        <div class="field">
+          <label class="field-label">赛事级别</label>
+          <div class="option-group radio-group">
+            <label class="option-item"><input type="radio" name="competition-level" value="不限" onchange="updateProgress()"><span class="option-tag">不限</span></label>
+            <label class="option-item"><input type="radio" name="competition-level" value="省级" onchange="updateProgress()"><span class="option-tag">省级</span></label>
+            <label class="option-item"><input type="radio" name="competition-level" value="国家级" onchange="updateProgress()"><span class="option-tag">国家级</span></label>
+            <label class="option-item"><input type="radio" name="competition-level" value="国际级" onchange="updateProgress()"><span class="option-tag">国际级</span></label>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label">个人/团队</label>
+          <div class="option-group radio-group">
+            <label class="option-item"><input type="radio" name="team-type" value="个人赛" onchange="updateProgress()"><span class="option-tag">个人</span></label>
+            <label class="option-item"><input type="radio" name="team-type" value="团队赛" onchange="updateProgress()"><span class="option-tag">团队</span></label>
+            <label class="option-item"><input type="radio" name="team-type" value="个人或团队均可" onchange="updateProgress()"><span class="option-tag">均可</span></label>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label">有指导老师吗</label>
+          <div class="option-group radio-group">
+            <label class="option-item"><input type="radio" name="has-advisor" value="有指导老师" onchange="updateProgress()"><span class="option-tag">有</span></label>
+            <label class="option-item"><input type="radio" name="has-advisor" value="没有指导老师" onchange="updateProgress()"><span class="option-tag">暂无</span></label>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label">接受跨校组队</label>
+          <div class="option-group radio-group">
+            <label class="option-item"><input type="radio" name="cross-school" value="可以跨校" onchange="updateProgress()"><span class="option-tag">接受</span></label>
+            <label class="option-item"><input type="radio" name="cross-school" value="不可以跨校" onchange="updateProgress()"><span class="option-tag">不接受</span></label>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label">比赛周期</label>
+          <div class="option-group radio-group">
+            <label class="option-item"><input type="radio" name="competition-duration" value="1天冲刺" onchange="updateProgress()"><span class="option-tag">1天冲刺</span></label>
+            <label class="option-item"><input type="radio" name="competition-duration" value="1-4周" onchange="updateProgress()"><span class="option-tag">1-4周</span></label>
+            <label class="option-item"><input type="radio" name="competition-duration" value="1-3个月" onchange="updateProgress()"><span class="option-tag">1-3个月</span></label>
+            <label class="option-item"><input type="radio" name="competition-duration" value="半年以上" onchange="updateProgress()"><span class="option-tag">半年以上</span></label>
+            <label class="option-item"><input type="radio" name="competition-duration" value="均可" onchange="updateProgress()"><span class="option-tag">均可</span></label>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label">比赛形式</label>
+          <div class="option-group radio-group">
+            <label class="option-item"><input type="radio" name="competition-format" value="线上提交" onchange="updateProgress()"><span class="option-tag">线上提交</span></label>
+            <label class="option-item"><input type="radio" name="competition-format" value="需现场答辩" onchange="updateProgress()"><span class="option-tag">需现场答辩</span></label>
+            <label class="option-item"><input type="radio" name="competition-format" value="均可" onchange="updateProgress()"><span class="option-tag">均可</span></label>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label">报名费</label>
+          <div class="option-group radio-group">
+            <label class="option-item"><input type="radio" name="registration-fee" value="免费" onchange="updateProgress()"><span class="option-tag">免费优先</span></label>
+            <label class="option-item"><input type="radio" name="registration-fee" value="100元以内" onchange="updateProgress()"><span class="option-tag">200以内</span></label>
+            <label class="option-item"><input type="radio" name="registration-fee" value="不限" onchange="updateProgress()"><span class="option-tag">不限</span></label>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label">语言</label>
+          <div class="option-group radio-group">
+            <label class="option-item"><input type="radio" name="language-pref" value="只中文" onchange="updateProgress()"><span class="option-tag">只中文</span></label>
+            <label class="option-item"><input type="radio" name="language-pref" value="英文也行" onchange="updateProgress()"><span class="option-tag">英文也行</span></label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ 六、需避免的竞赛类型 ═══ -->
+    <div class="section" id="sec-avoid">
+      <div class="section-header" onclick="toggleSection('sec-avoid')">
+        <span class="section-num num-required">六</span>
+        <span class="section-title">需避免的竞赛类型</span>
+        <span class="section-badge badge-required" style="background:#ffeaea;color:var(--required);">⭐必填</span>
+        <span class="section-arrow">▼</span>
+      </div>
+      <div class="section-body">
+        <div class="field">
+          <label class="field-label">以下哪些类型你坚决不参加？<span class="field-hint">可多选，选中的会被排除</span></label>
+          <div class="option-group" id="avoid-group">
+            <label class="option-item"><input type="checkbox" name="avoid" value="纯商业计划书（无技术落地）" onchange="updateProgress()"><span class="option-tag">纯商业计划书（无技术落地）</span></label>
+            <label class="option-item"><input type="checkbox" name="avoid" value="纯笔试/死记硬背型" onchange="updateProgress()"><span class="option-tag">纯笔试/死记硬背型</span></label>
+            <label class="option-item"><input type="checkbox" name="avoid" value="需要长期出差/驻场" onchange="updateProgress()"><span class="option-tag">需要长期出差/驻场</span></label>
+            <label class="option-item"><input type="checkbox" name="avoid" value="报名费过高" onchange="toggleAvoidFee();updateProgress()"><span class="option-tag">报名费过高</span></label>
+            <label class="option-item"><input type="checkbox" name="avoid" value="对美术/设计有硬性要求" onchange="updateProgress()"><span class="option-tag">对美术/设计有硬性要求</span></label>
+            <label class="option-item"><input type="checkbox" name="avoid" value="必须全程线下" onchange="updateProgress()"><span class="option-tag">必须全程线下</span></label>
+            <label class="option-item"><input type="checkbox" name="avoid" value="比赛语言非中文" onchange="updateProgress()"><span class="option-tag">比赛语言非中文</span></label>
+            <label class="option-item"><input type="checkbox" name="avoid" value="__OTHER__" onchange="toggleOther('avoid-other');updateProgress()"><span class="option-tag">其他</span></label>
+          </div>
+          <div class="inline-other" id="avoid-fee-wrap" style="margin-top:6px;">
+            <span style="font-size:13px;color:#666;">超过</span>
+            <input type="text" id="avoid-fee-amount" placeholder="金额" style="width:80px;display:inline;" oninput="updateProgress()">
+            <span style="font-size:13px;color:#666;">元不考虑</span>
+          </div>
+          <div class="inline-other" id="avoid-other-wrap">
+            <input type="text" id="avoid-other" placeholder="请输入其他需避免的类型" oninput="updateProgress()">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ 七、过往参赛经历 ═══ -->
+    <div class="section" id="sec-history">
+      <div class="section-header" onclick="toggleSection('sec-history')">
+        <span class="section-num num-optional">七</span>
+        <span class="section-title">过往参赛经历</span>
+        <span class="section-badge badge-optional" style="background:#e8f8ef;color:var(--optional);">△选填</span>
+        <span class="section-arrow">▼</span>
+      </div>
+      <div class="section-body">
+        <div class="field">
+          <label class="field-label">最高获奖</label>
+          <div class="option-group radio-group">
+            <label class="option-item"><input type="radio" name="highest-award" value="无" onchange="updateProgress()"><span class="option-tag">无</span></label>
+            <label class="option-item"><input type="radio" name="highest-award" value="校级获奖" onchange="updateProgress()"><span class="option-tag">校级</span></label>
+            <label class="option-item"><input type="radio" name="highest-award" value="省级获奖" onchange="updateProgress()"><span class="option-tag">省级</span></label>
+            <label class="option-item"><input type="radio" name="highest-award" value="国家级获奖" onchange="updateProgress()"><span class="option-tag">国家级</span></label>
+            <label class="option-item"><input type="radio" name="highest-award" value="国际级获奖" onchange="updateProgress()"><span class="option-tag">国际级</span></label>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label">代表性项目<span class="field-hint">一句话说清楚你做了什么</span></label>
+          <input type="text" id="project1" placeholder="项目1：如「用Python写了个自动抢课脚本」" oninput="updateProgress()">
+          <input type="text" id="project2" placeholder="项目2" style="margin-top:6px;" oninput="updateProgress()">
+          <input type="text" id="project3" placeholder="项目3" style="margin-top:6px;" oninput="updateProgress()">
+        </div>
+        <div class="field">
+          <label class="field-label">有作品集/GitHub吗</label>
+          <div class="option-group radio-group" id="has-portfolio-group">
+            <label class="option-item"><input type="radio" name="has-portfolio" value="有" onchange="togglePortfolioLink();updateProgress()"><span class="option-tag">有</span></label>
+            <label class="option-item"><input type="radio" name="has-portfolio" value="没有" onchange="togglePortfolioLink();updateProgress()"><span class="option-tag">没有</span></label>
+          </div>
+          <div class="inline-other" id="portfolio-link-wrap">
+            <input type="url" id="portfolio-link" placeholder="请输入链接" oninput="updateProgress()">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ 八、期望获奖层次 ═══ -->
+    <div class="section" id="sec-expectation">
+      <div class="section-header" onclick="toggleSection('sec-expectation')">
+        <span class="section-num num-optional">八</span>
+        <span class="section-title">期望获奖层次</span>
+        <span class="section-badge badge-optional" style="background:#e8f8ef;color:var(--optional);">△选填</span>
+        <span class="section-arrow">▼</span>
+      </div>
+      <div class="section-body">
+        <div class="field">
+          <label class="field-label">最低接受</label>
+          <div class="option-group radio-group">
+            <label class="option-item"><input type="radio" name="min-award" value="参与奖就行" onchange="updateProgress()"><span class="option-tag">参与奖就行</span></label>
+            <label class="option-item"><input type="radio" name="min-award" value="省级" onchange="updateProgress()"><span class="option-tag">省级</span></label>
+            <label class="option-item"><input type="radio" name="min-award" value="国家级" onchange="updateProgress()"><span class="option-tag">国家级</span></label>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label">理想目标</label>
+          <input type="text" id="ideal-goal" placeholder="如：国家级一等奖" oninput="updateProgress()">
+        </div>
+        <div class="field">
+          <label class="field-label">策略</label>
+          <div class="option-group radio-group">
+            <label class="option-item"><input type="radio" name="strategy" value="含金量优先" onchange="updateProgress()"><span class="option-tag">含金量优先</span></label>
+            <label class="option-item"><input type="radio" name="strategy" value="兼顾含金量和概率" onchange="updateProgress()"><span class="option-tag">兼顾含金量和概率</span></label>
+            <label class="option-item"><input type="radio" name="strategy" value="拿奖概率优先" onchange="updateProgress()"><span class="option-tag">拿奖概率优先</span></label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ 九、同校组队现状 ═══ -->
+    <div class="section" id="sec-team">
+      <div class="section-header" onclick="toggleSection('sec-team')">
+        <span class="section-num num-optional">九</span>
+        <span class="section-title">同校组队现状</span>
+        <span class="section-badge badge-optional" style="background:#e8f8ef;color:var(--optional);">△选填</span>
+        <span class="section-arrow">▼</span>
+      </div>
+      <div class="section-body">
+        <div class="field">
+          <label class="field-label">学校有实验室/战队吗</label>
+          <div class="option-group radio-group">
+            <label class="option-item"><input type="radio" name="has-lab" value="有" onchange="updateProgress()"><span class="option-tag">有</span></label>
+            <label class="option-item"><input type="radio" name="has-lab" value="没有" onchange="updateProgress()"><span class="option-tag">没有</span></label>
+            <label class="option-item"><input type="radio" name="has-lab" value="不清楚" onchange="updateProgress()"><span class="option-tag">不清楚</span></label>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label">愿意加入校内团队</label>
+          <div class="option-group radio-group">
+            <label class="option-item"><input type="radio" name="join-school-team" value="愿意" onchange="updateProgress()"><span class="option-tag">愿意</span></label>
+            <label class="option-item"><input type="radio" name="join-school-team" value="挑项目" onchange="updateProgress()"><span class="option-tag">挑项目</span></label>
+            <label class="option-item"><input type="radio" name="join-school-team" value="想自己组" onchange="updateProgress()"><span class="option-tag">想自己组</span></label>
+            <label class="option-item"><input type="radio" name="join-school-team" value="视情况" onchange="updateProgress()"><span class="option-tag">视情况</span></label>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label">需要匹配队友</label>
+          <div class="option-group radio-group">
+            <label class="option-item"><input type="radio" name="need-teammate" value="需要" onchange="updateProgress()"><span class="option-tag">需要</span></label>
+            <label class="option-item"><input type="radio" name="need-teammate" value="暂不需要" onchange="updateProgress()"><span class="option-tag">暂不需要</span></label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    </form>
+
+    <!-- 生成报告按钮 -->
+    <div style="margin-top:20px;">
+      <button id="btnGenerate" class="btn-submit active" onclick="generateReport()">
+        📋 生成报告
+      </button>
+      <p style="font-size:12px;color:#999;text-align:center;margin-top:8px;">填完信息后点击生成，即可复制报告发给小明</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 报告区 ═══════════════ -->
+  <div class="report-area" id="reportArea">
+    <div class="report-card">
+      <div class="report-title">✅ 报告生成成功！</div>
+      <div class="report-text" id="reportText" contenteditable="false"></div>
+      <div class="report-actions">
+        <button class="btn btn-copy" id="btnCopy" onclick="copyReport()">📋 一键复制报告</button>
+        <p class="copy-hint">点击上方按钮复制全文，然后去微信粘贴发给小明<br>如无法复制，请长按上方文本框手动全选复制</p>
+        <button class="btn btn-ghost" style="background:transparent;color:#666;font-size:13px;padding:8px;" onclick="backToForm()">← 返回修改</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- ═══════════════ JS ═══════════════ -->
+<script>
+// ── 折叠区块 ──
+function toggleSection(id) {
+  document.getElementById(id).classList.toggle('open');
+}
+
+// ── 其他选项切换 ──
+function toggleOther(id) {
+  const wrap = document.getElementById(id + '-wrap');
+  const cb = document.querySelector(`[value="__OTHER__"][name="${id.replace('-other','')}"]`);
+  // 对于 tech-direction 这种多个 __OTHER__ 的情况
+  if (cb && cb.checked) {
+    wrap.classList.add('show');
+  } else {
+    // 尝试找到所有相关的 __OTHER__
+    const allOther = document.querySelectorAll('[value="__OTHER__"]');
+    let anyChecked = false;
+    allOther.forEach(function(o) {
+      const wrapId = o.closest('.option-group')?.nextElementSibling?.id;
+      if (wrapId && wrapId === id + '-wrap' && o.checked) anyChecked = true;
+    });
+    if (anyChecked) wrap.classList.add('show');
+    else wrap.classList.remove('show');
+  }
+}
+
+// 通用 toggleOther - 处理所有场景
+document.addEventListener('change', function(e) {
+  if (e.target.value === '__OTHER__' && e.target.type === 'checkbox') {
+    const wrap = e.target.closest('.field')?.querySelector('.inline-other');
+    if (wrap) {
+      if (e.target.checked) wrap.classList.add('show');
+      else {
+        // 检查同组是否还有其他 __OTHER__ 被选中
+        const name = e.target.name;
+        const allOther = document.querySelectorAll(`[name="${name}"][value="__OTHER__"]`);
+        let anyChecked = false;
+        allOther.forEach(function(o) { if (o.checked) anyChecked = true; });
+        if (!anyChecked) wrap.classList.remove('show');
+      }
+    }
+  }
+});
+
+// ── 特定切换 ──
+function toggleAvoidFee() {
+  const cb = document.querySelector('[name="avoid"][value="报名费过高"]');
+  const wrap = document.getElementById('avoid-fee-wrap');
+  if (cb && cb.checked) wrap.classList.add('show');
+  else wrap.classList.remove('show');
+}
+
+function togglePortfolioLink() {
+  const val = document.querySelector('[name="has-portfolio"]:checked')?.value;
+  const wrap = document.getElementById('portfolio-link-wrap');
+  if (val === '有') wrap.classList.add('show');
+  else wrap.classList.remove('show');
+}
+
+function handleYearRound(el) {
+  const months = document.getElementById('specific-months-group');
+  if (el.checked) {
+    months.querySelectorAll('input').forEach(function(cb) { cb.checked = false; });
+    months.style.opacity = '0.4';
+    months.style.pointerEvents = 'none';
+  } else {
+    months.style.opacity = '1';
+    months.style.pointerEvents = 'auto';
+  }
+}
+
+// ── 进度条 ──
+function updateProgress() {
+  // 简单计算：统计所有必填字段
+  var total = 0, filled = 0;
+
+  // 别名
+  total++; if (document.getElementById('alias').value.trim()) filled++;
+  // 学校
+  total++; if (document.getElementById('school').value.trim()) filled++;
+  // 专业
+  total++; if (document.getElementById('major').value.trim()) filled++;
+  // 年级
+  total++; if (document.querySelector('[name="grade"]:checked')) filled++;
+  // 兴趣
+  total++; if (document.querySelectorAll('[name="interests"]:checked').length > 0) filled++;
+  // 目标
+  total++; if (document.querySelectorAll('[name="goals"]:checked').length > 0) filled++;
+  // 核心技能
+  total++; if (document.getElementById('core-skills').value.trim()) filled++;
+  // 每周时间
+  total++; if (document.querySelector('[name="weekly-hours"]:checked')) filled++;
+  // 避免
+  total++; if (document.querySelectorAll('[name="avoid"]:checked').length > 0) filled++;
+
+  var pct = Math.round((filled / total) * 100);
+  document.getElementById('progressPercent').textContent = pct + '%';
+  document.getElementById('progressFill').style.width = pct + '%';
+
+  // 按钮状态
+  var btn = document.getElementById('btnGenerate');
+  if (pct >= 80) {
+    btn.classList.remove('disabled'); btn.classList.add('active');
+    btn.disabled = false;
+  } else {
+    btn.classList.add('disabled'); btn.classList.remove('active');
+    btn.disabled = true;
+  }
+}
+
+// ── 收集表单数据 ──
+function collectFormData() {
+  var data = {};
+  data.alias = document.getElementById('alias').value.trim();
+  data.school = document.getElementById('school').value.trim();
+  data.major = document.getElementById('major').value.trim();
+  data.grade = (document.querySelector('[name="grade"]:checked') || {}).value || '';
+  data.interests = getCheckedValues('interests', 'interests-other');
+  data.goals = getCheckedValues('goals', 'goals-other');
+  data.majorCategory = (document.querySelector('[name="major-category"]:checked') || {}).value || '';
+  data.coreSkills = document.getElementById('core-skills').value.trim();
+  data.techDirection = getCheckedValues('tech-direction', 'tech-direction-other');
+  data.tools = getCheckedValues('tools', 'tools-other');
+  data.skillsNote = document.getElementById('skills-note').value.trim();
+  data.weeklyHours = (document.querySelector('[name="weekly-hours"]:checked') || {}).value || '';
+  data.freeMonths = getCheckedValues('free-months', null);
+  data.holidayReady = (document.querySelector('[name="holiday-ready"]:checked') || {}).value || '';
+  data.competitionLevel = (document.querySelector('[name="competition-level"]:checked') || {}).value || '';
+  data.teamType = (document.querySelector('[name="team-type"]:checked') || {}).value || '';
+  data.hasAdvisor = (document.querySelector('[name="has-advisor"]:checked') || {}).value || '';
+  data.crossSchool = (document.querySelector('[name="cross-school"]:checked') || {}).value || '';
+  data.competitionDuration = (document.querySelector('[name="competition-duration"]:checked') || {}).value || '';
+  data.competitionFormat = (document.querySelector('[name="competition-format"]:checked') || {}).value || '';
+  data.registrationFee = (document.querySelector('[name="registration-fee"]:checked') || {}).value || '';
+  data.languagePref = (document.querySelector('[name="language-pref"]:checked') || {}).value || '';
+  data.avoid = getCheckedValues('avoid', 'avoid-other');
+  if (document.querySelector('[name="avoid"][value="报名费过高"]')?.checked) {
+    var feeIdx = data.avoid.indexOf('报名费过高');
+    if (feeIdx > -1) {
+      var feeAmt = document.getElementById('avoid-fee-amount').value.trim();
+      data.avoid[feeIdx] = '报名费过高(' + (feeAmt || '?') + '元以上不考虑)';
+    }
+  }
+  data.highestAward = (document.querySelector('[name="highest-award"]:checked') || {}).value || '';
+  data.project1 = document.getElementById('project1').value.trim();
+  data.project2 = document.getElementById('project2').value.trim();
+  data.project3 = document.getElementById('project3').value.trim();
+  data.hasPortfolio = (document.querySelector('[name="has-portfolio"]:checked') || {}).value || '';
+  data.portfolioLink = document.getElementById('portfolio-link').value.trim();
+  data.minAward = (document.querySelector('[name="min-award"]:checked') || {}).value || '';
+  data.idealGoal = document.getElementById('ideal-goal').value.trim();
+  data.strategy = (document.querySelector('[name="strategy"]:checked') || {}).value || '';
+  data.hasLab = (document.querySelector('[name="has-lab"]:checked') || {}).value || '';
+  data.joinSchoolTeam = (document.querySelector('[name="join-school-team"]:checked') || {}).value || '';
+  data.needTeammate = (document.querySelector('[name="need-teammate"]:checked') || {}).value || '';
+  data.generatedAt = new Date().toLocaleString('zh-CN', {timeZone:'Asia/Shanghai'});
+  return data;
+}
+
+function getCheckedValues(name, otherId) {
+  var vals = [];
+  document.querySelectorAll('[name="' + name + '"]:checked').forEach(function(cb) {
+    if (cb.value === '__OTHER__' && otherId) {
+      var otherVal = document.getElementById(otherId).value.trim();
+      if (otherVal) vals.push(otherVal);
+    } else if (cb.value !== '__OTHER__') {
+      vals.push(cb.value);
+    }
+  });
+  return vals;
+}
+
+// ── 生成报告文本 ──
+function buildReportText(data) {
+  var lines = [];
+  lines.push('📋 赛赋·竞赛匹配报告');
+  lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  if (data.alias) lines.push('别名/称呼：' + data.alias);
+  if (data.school) lines.push('学校：' + data.school);
+  if (data.major) lines.push('专业：' + data.major);
+  if (data.grade) lines.push('年级：' + data.grade);
+  if (data.interests.length) lines.push('兴趣领域：' + data.interests.join(', '));
+  if (data.goals.length) lines.push('参赛目标：' + data.goals.join(', '));
+  if (data.majorCategory) lines.push('专业大类：' + data.majorCategory);
+  if (data.coreSkills) lines.push('核心技能：' + data.coreSkills);
+  if (data.techDirection.length) lines.push('技能领域：' + data.techDirection.join(', '));
+  if (data.tools.length) lines.push('常用工具：' + data.tools.join(', '));
+  if (data.skillsNote) lines.push('补充说明：' + data.skillsNote);
+  if (data.weeklyHours) lines.push('每周可投入：' + data.weeklyHours);
+  if (data.freeMonths.length) lines.push('空闲月份：' + data.freeMonths.join(', '));
+  if (data.holidayReady) lines.push('寒暑假可集中备赛：' + data.holidayReady);
+  if (data.competitionLevel) lines.push('赛事级别：' + data.competitionLevel);
+  if (data.teamType) lines.push('个人/团队：' + data.teamType);
+  if (data.hasAdvisor) lines.push('有指导老师：' + data.hasAdvisor);
+  if (data.crossSchool) lines.push('接受跨校组队：' + data.crossSchool);
+  if (data.competitionDuration) lines.push('比赛周期：' + data.competitionDuration);
+  if (data.competitionFormat) lines.push('比赛形式：' + data.competitionFormat);
+  if (data.registrationFee) lines.push('报名费：' + data.registrationFee);
+  if (data.languagePref) lines.push('语言：' + data.languagePref);
+  if (data.avoid.length) lines.push('需避免：' + data.avoid.join(', '));
+  if (data.highestAward) lines.push('最高获奖：' + data.highestAward);
+  if (data.project1) lines.push('代表性项目1：' + data.project1);
+  if (data.project2) lines.push('代表性项目2：' + data.project2);
+  if (data.project3) lines.push('代表性项目3：' + data.project3);
+  if (data.hasPortfolio) {
+    var pfText = '有作品集/GitHub：' + data.hasPortfolio;
+    if (data.portfolioLink) pfText += ' | ' + data.portfolioLink;
+    lines.push(pfText);
+  }
+  if (data.minAward) lines.push('最低接受：' + data.minAward);
+  if (data.idealGoal) lines.push('理想目标：' + data.idealGoal);
+  if (data.strategy) lines.push('策略：' + data.strategy);
+  if (data.hasLab) lines.push('学校有实验室：' + data.hasLab);
+  if (data.joinSchoolTeam) lines.push('愿意加入校内团队：' + data.joinSchoolTeam);
+  if (data.needTeammate) lines.push('需要匹配队友：' + data.needTeammate);
+  lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  lines.push('由 赛赋 SaiFu 生成 · 填写时间：' + (data.generatedAt || ''));
+  lines.push('');
+  lines.push('<!--SAIFU_JSON:' + JSON.stringify(data) + ':SAIFU_JSON-->');
+  return lines.join('\n');
+}
+
+// ── 生成报告 ──
+function generateReport() {
+  var data = collectFormData();
+
+  // 基本校验
+  if (!data.alias) { showToast('请填写别名/称呼'); return; }
+  if (!data.school) { showToast('请填写学校'); return; }
+  if (!data.major) { showToast('请填写专业'); return; }
+  if (!data.grade) { showToast('请选择年级'); return; }
+  if (data.interests.length === 0) { showToast('请至少选一个兴趣领域'); return; }
+  if (data.goals.length === 0) { showToast('请至少选一个参赛目标'); return; }
+  if (!data.coreSkills) { showToast('请填写核心技能'); return; }
+  if (!data.weeklyHours) { showToast('请选择每周可投入时间'); return; }
+  if (data.avoid.length === 0) { showToast('请至少选一个需避免的类型（没有就选"无"）'); return; }
+
+  var text = buildReportText(data);
+  document.getElementById('reportText').textContent = text;
+  document.getElementById('formArea').style.display = 'none';
+  document.getElementById('reportArea').style.display = 'block';
+  document.getElementById('reportArea').scrollIntoView({ behavior: 'smooth' });
+
+  // 存储数据供后续使用
+  window._saifuData = data;
+  window._saifuText = text;
+}
+
+function backToForm() {
+  document.getElementById('formArea').style.display = 'block';
+  document.getElementById('reportArea').style.display = 'none';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── 复制报告 ──
+function copyReport() {
+  var text = window._saifuText || document.getElementById('reportText').textContent;
+  var btn = document.getElementById('btnCopy');
+
+  // 方案1: navigator.clipboard
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function() {
+      btn.textContent = '✅ 已复制！去微信粘贴吧';
+      btn.style.background = '#e8f8ef';
+      btn.style.borderColor = '#27ae60';
+      btn.style.color = '#27ae60';
+      showToast('✅ 已复制到剪贴板！');
+      setTimeout(function() {
+        btn.textContent = '📋 一键复制报告';
+        btn.style.background = '#fff';
+        btn.style.borderColor = 'var(--accent)';
+        btn.style.color = 'var(--accent)';
+      }, 3000);
+    }).catch(function() {
+      fallbackCopy(text);
+    });
+  } else {
+    fallbackCopy(text);
+  }
+}
+
+function fallbackCopy(text) {
+  // 方案2: execCommand
+  var ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.left = '-9999px';
+  ta.style.top = '-9999px';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  try {
+    var ok = document.execCommand('copy');
+    if (ok) {
+      showToast('✅ 已复制到剪贴板！');
+    } else {
+      showToast('⚠️ 请长按上方文本框手动全选复制');
+    }
+  } catch(e) {
+    showToast('⚠️ 请长按上方文本框手动全选复制');
+  }
+  document.body.removeChild(ta);
+}
+
+// ── Toast ──
+function showToast(msg) {
+  var toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toast._timeout);
+  toast._timeout = setTimeout(function() {
+    toast.classList.remove('show');
+  }, 2500);
+}
+
+// ── 初始化 ──
+updateProgress();
+</script>
+
+</body>
+</html>

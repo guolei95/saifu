@@ -370,7 +370,8 @@ input[type="text"]:focus, select:focus, textarea:focus {
   .contact-modal-overlay,
   #importArea,
   .tab-bar,
-  .match-btn-wrap {
+  .match-btn-wrap,
+  .toast {
     display: none !important;
   }
 

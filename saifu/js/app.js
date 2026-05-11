@@ -1109,7 +1109,6 @@ function printToPDF() {
   const alias = getAlias();
   const title = alias ? `赛赋-调研报告-${alias}` : '赛赋-调研报告';
   document.title = title;
-  showToast('正在打开打印对话框…📄');
   window.print();
 }
 

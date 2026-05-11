@@ -1,0 +1,291 @@
+"""
+赛赋(SaiFu) FastAPI 应用入口 — 提供 Web API。
+采用提交+轮询模式处理长时匹配任务，避免 Cloudflare Tunnel 断连。
+"""
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import Optional
+import os
+import asyncio
+import uuid
+from datetime import datetime
+
+from match.engine import match_competitions
+from config import DEEPSEEK_API_KEY
+from services.knowledge_base import COMPETITION_FACTS
+from services.research import run_research
+
+app = FastAPI(title="赛赋 SaiFu - 智能竞赛匹配平台", version="1.0.0")
+
+# ── CORS 中间件 ──
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "*")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[FRONTEND_URL] if FRONTEND_URL != "*" else ["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ── 任务存储（内存中）──
+tasks: dict = {}  # task_id -> {"status": "processing"|"done"|"error", "result": ..., "created_at": ..., "error": ...}
+
+
+class ProfileInput(BaseModel):
+    """用户画像输入 — 所有字段可选，缺的自动用默认值。"""
+    school: Optional[str] = ""
+    major: Optional[str] = ""
+    grade: Optional[str] = ""
+    interests: Optional[str] = ""
+    skills: Optional[str] = ""
+    tech_directions: Optional[list] = []
+    tools: Optional[list] = []
+    other_skills: Optional[str] = ""
+    goals: Optional[list] = []
+    time_commitment: Optional[str] = ""
+    available_months: Optional[str] = ""
+    summer_winter: Optional[str] = ""
+    preference: Optional[str] = ""
+    team_preference: Optional[str] = ""
+    preferred_duration: Optional[str] = ""
+    preferred_format: Optional[str] = ""
+    fee_budget: Optional[str] = ""
+    language_pref: Optional[str] = ""
+    has_advisor: Optional[str] = ""
+    can_cross_school: Optional[str] = ""
+    avoid_types: Optional[str] = ""
+    past_highest_award: Optional[str] = ""
+    representative_projects: Optional[list] = []
+    has_portfolio: Optional[bool] = False
+    portfolio_link: Optional[str] = ""
+    has_lab: Optional[bool] = False
+    join_school_team: Optional[bool] = False
+    need_teammate: Optional[bool] = False
+    min_award: Optional[str] = ""
+    ideal_goal: Optional[str] = ""
+    strategy: Optional[str] = ""
+
+
+class ImportResearchInput(BaseModel):
+    """导入用户报告 + 触发调研的请求体。"""
+    user_data: dict  # 从报告文本解析出的所有字段
+
+
+@app.get("/api/health")
+async def health():
+    """健康检查端点。"""
+    return {
+        "status": "ok",
+        "deepseek_configured": bool(DEEPSEEK_API_KEY),
+    }
+
+
+@app.get("/api/competitions")
+async def list_competitions():
+    """返回84项A类竞赛知识库。"""
+    # 去重（同一竞赛可能有多个别称）
+    seen_ids = set()
+    items = []
+    for name, info in COMPETITION_FACTS.items():
+        cid = info.get("id")
+        if cid in seen_ids:
+            continue
+        seen_ids.add(cid)
+        items.append({
+            "id": cid,
+            "name": info.get("name", name),
+            "alt_name": info.get("alt_name", ""),
+            "url": info.get("url", ""),
+            "form": info.get("form", ""),
+            "timing": info.get("timing", ""),
+            "fee": info.get("fee", ""),
+            "format": info.get("format", ""),
+            "requirements": info.get("requirements", ""),
+        })
+    # 按 id 排序
+    items.sort(key=lambda x: x.get("id") or 999)
+    return {
+        "success": True,
+        "count": len(items),
+        "competitions": items,
+    }
+
+
+@app.post("/api/match")
+async def start_match(profile: ProfileInput):
+    """提交匹配任务 — 立即返回 task_id，后台异步处理。
+
+    前端用 task_id 轮询 GET /api/match/{task_id} 获取结果。
+    """
+    task_id = str(uuid.uuid4())[:8]
+    tasks[task_id] = {
+        "status": "processing",
+        "created_at": datetime.now().isoformat(),
+        "result": None,
+        "error": None,
+    }
+
+    profile_dict = profile.model_dump()
+
+    # 启动后台任务
+    asyncio.create_task(_run_match(task_id, profile_dict))
+
+    return {
+        "success": True,
+        "task_id": task_id,
+        "message": "匹配任务已提交，请轮询获取结果",
+    }
+
+
+@app.get("/api/match/{task_id}")
+async def get_match_result(task_id: str):
+    """查询匹配任务状态和结果。
+
+    status="processing": 还在处理中
+    status="done": 已完成，result 字段包含匹配结果
+    status="error": 出错，error 字段包含错误信息
+    """
+    task = tasks.get(task_id)
+    if not task:
+        return {"success": False, "error": "任务不存在或已过期", "status": "not_found"}
+
+    return {
+        "success": True,
+        "task_id": task_id,
+        "status": task["status"],
+        "result": task["result"],
+        "error": task["error"],
+    }
+
+
+async def _run_match(task_id: str, profile_dict: dict):
+    """后台执行匹配任务。"""
+    try:
+        # 在线程池中运行同步匹配函数，避免阻塞事件循环
+        result = await asyncio.to_thread(match_competitions, profile_dict)
+        tasks[task_id]["status"] = "done"
+        tasks[task_id]["result"] = result
+    except Exception as e:
+        tasks[task_id]["status"] = "error"
+        tasks[task_id]["error"] = str(e) or "匹配服务暂时不可用"
+
+
+# ── 定期清理过期任务 ──
+# ── 导入调研 API ──
+@app.post("/api/import-and-research")
+async def start_import_research(body: ImportResearchInput):
+    """导入用户报告 + 发起调研 — 立即返回 task_id，后台异步处理。
+
+    前端用 task_id 轮询 GET /api/import-and-research/{task_id} 获取调研结果。
+    """
+    task_id = "research_" + str(uuid.uuid4())[:8]
+    tasks[task_id] = {
+        "status": "processing",
+        "created_at": datetime.now().isoformat(),
+        "result": None,
+        "error": None,
+    }
+
+    user_data = body.user_data
+
+    # 启动后台调研任务
+    asyncio.create_task(_run_import_research(task_id, user_data))
+
+    return {
+        "success": True,
+        "task_id": task_id,
+        "message": "调研任务已提交，请轮询获取结果",
+    }
+
+
+@app.get("/api/import-and-research/{task_id}")
+async def get_research_result(task_id: str):
+    """查询调研任务状态和结果。
+
+    status="processing": 还在分析中
+    status="done": 已完成，result 字段包含调研结果
+    status="error": 出错，error 字段包含错误信息
+    """
+    task = tasks.get(task_id)
+    if not task:
+        return {"success": False, "error": "任务不存在或已过期", "status": "not_found"}
+
+    return {
+        "success": True,
+        "task_id": task_id,
+        "status": task["status"],
+        "result": task["result"],
+        "error": task["error"],
+    }
+
+
+async def _run_import_research(task_id: str, user_data: dict):
+    """后台执行导入调研任务：保存用户数据 + 调用 AI 调研。"""
+    import json
+    import os
+    from datetime import date
+
+    try:
+        # 1. 保存用户数据到本地 JSON
+        name = user_data.get("name", "未知用户")
+        safe_name = name.replace("/", "_").replace("\\", "_").replace(" ", "_")
+        today_str = date.today().isoformat()
+        users_dir = os.path.join(os.path.dirname(__file__), "data", "users")
+        os.makedirs(users_dir, exist_ok=True)
+
+        user_filename = f"{safe_name}_{today_str}.json"
+        user_path = os.path.join(users_dir, user_filename)
+        with open(user_path, "w", encoding="utf-8") as f:
+            json.dump(user_data, f, ensure_ascii=False, indent=2)
+
+        # 2. 调用 AI 调研（在线程池中运行同步函数）
+        research_result = await asyncio.to_thread(run_research, user_data)
+
+        # 3. 保存调研结果到本地 JSON
+        research_filename = f"{safe_name}_{today_str}_research.json"
+        research_path = os.path.join(users_dir, research_filename)
+        with open(research_path, "w", encoding="utf-8") as f:
+            json.dump(research_result, f, ensure_ascii=False, indent=2)
+
+        # 4. 构建返回结果
+        tasks[task_id]["status"] = "done"
+        tasks[task_id]["result"] = {
+            "success": True,
+            "user_name": name,
+            "user_school": user_data.get("school", ""),
+            "user_file": user_filename,
+            "research_file": research_filename,
+            "recommendations": research_result.get("recommendations", []),
+            "advice": research_result.get("advice", {}),
+            "risks": research_result.get("risks", []),
+            "summary": research_result.get("summary", ""),
+        }
+    except Exception as e:
+        tasks[task_id]["status"] = "error"
+        tasks[task_id]["error"] = str(e) or "调研服务暂时不可用"
+
+
+async def _cleanup_old_tasks():
+    """每 5 分钟清理超过 30 分钟的任务。"""
+    while True:
+        await asyncio.sleep(300)
+        now = datetime.now()
+        to_remove = []
+        for tid, task in tasks.items():
+            created = datetime.fromisoformat(task["created_at"])
+            if (now - created).total_seconds() > 1800:
+                to_remove.append(tid)
+        for tid in to_remove:
+            del tasks[tid]
+
+
+@app.on_event("startup")
+async def startup():
+    asyncio.create_task(_cleanup_old_tasks())
+
+
+# ── 本地开发入口 ──
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

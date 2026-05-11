@@ -308,7 +308,7 @@ def run_research(user_data: dict) -> dict:
         # 如果 KB 中有同名竞赛，用 KB 事实数据补全 LLM 缺失字段
         if n in kb_norm_map:
             kb_item = kb_norm_map[n]
-            for field in ["level", "deadline", "form", "fee", "official_url", "desc", "cat", "recommend_index"]:
+            for field in ["level", "deadline", "form", "fee", "official_url", "desc", "cat"]:
                 llm_val = str(r.get(field, "")).strip()
                 kb_val = str(kb_item.get(field, "")).strip()
                 if not llm_val or llm_val in ("未知", "待公布", "待查", "", "None"):
@@ -338,17 +338,16 @@ def run_research(user_data: dict) -> dict:
         # 类别标签
         if not r.get("cat"):
             r["cat"] = classify_competition(r_name)
-        # 推荐指数（从 match_score 推算）
-        if not r.get("recommend_index"):
-            score_val = r.get("match_score", 70)
-            if score_val >= 90:
-                r["recommend_index"] = 5
-            elif score_val >= 80:
-                r["recommend_index"] = 4
-            elif score_val >= 70:
-                r["recommend_index"] = 3
-            else:
-                r["recommend_index"] = 2
+        # 推荐指数（始终从 match_score 重新计算，不被 LLM/KB 旧值覆盖）
+        score_val = r.get("match_score", 70)
+        if score_val >= 90:
+            r["recommend_index"] = 5
+        elif score_val >= 80:
+            r["recommend_index"] = 4
+        elif score_val >= 70:
+            r["recommend_index"] = 3
+        else:
+            r["recommend_index"] = 2
         # 为什么参加（只需要竞赛名称）
         if not r.get("benefits"):
             r["benefits"] = get_benefit_text(r_name)

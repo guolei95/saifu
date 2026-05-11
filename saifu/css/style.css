@@ -55,6 +55,30 @@ body {
 /* ── 容器 ── */
 .container { max-width: 860px; margin: 0 auto; padding: 20px 16px; }
 
+/* ── Tab 切换 ── */
+.tab-switch {
+  display: flex; gap: 8px; margin-bottom: 20px;
+  background: #fff; border-radius: var(--radius); padding: 6px;
+  box-shadow: var(--shadow);
+}
+.tab-btn {
+  flex: 1; padding: 10px 20px; border: none; border-radius: 8px;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  background: transparent; color: var(--text-secondary);
+  transition: all 0.2s;
+}
+.tab-btn:hover { color: var(--accent); background: var(--accent-light); }
+.tab-btn.active { background: var(--accent); color: #fff; }
+
+/* ── 调研风险项 ── */
+.risk-item {
+  padding: 12px 0; border-bottom: 1px solid #f0f0f0;
+}
+.risk-item:last-child { border-bottom: none; }
+.risk-type { font-weight: 600; font-size: 14px; color: var(--red); margin-bottom: 4px; }
+.risk-detail { font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; }
+.risk-solution { font-size: 13px; color: var(--green); font-weight: 500; }
+
 /* ── 进度条 ── */
 .progress-wrap {
   background: #fff; border-radius: var(--radius); padding: 16px 20px;

@@ -14,6 +14,7 @@ from datetime import datetime
 from match.engine import match_competitions
 from config import DEEPSEEK_API_KEY
 from services.knowledge_base import COMPETITION_FACTS
+from services.research import run_research
 
 app = FastAPI(title="赛赋 SaiFu - 智能竞赛匹配平台", version="1.0.0")
 
@@ -64,6 +65,11 @@ class ProfileInput(BaseModel):
     min_award: Optional[str] = ""
     ideal_goal: Optional[str] = ""
     strategy: Optional[str] = ""
+
+
+class ImportResearchInput(BaseModel):
+    """导入用户报告 + 触发调研的请求体。"""
+    user_data: dict  # 从报告文本解析出的所有字段
 
 
 @app.get("/api/health")
@@ -166,6 +172,100 @@ async def _run_match(task_id: str, profile_dict: dict):
 
 
 # ── 定期清理过期任务 ──
+# ── 导入调研 API ──
+@app.post("/api/import-and-research")
+async def start_import_research(body: ImportResearchInput):
+    """导入用户报告 + 发起调研 — 立即返回 task_id，后台异步处理。
+
+    前端用 task_id 轮询 GET /api/import-and-research/{task_id} 获取调研结果。
+    """
+    task_id = "research_" + str(uuid.uuid4())[:8]
+    tasks[task_id] = {
+        "status": "processing",
+        "created_at": datetime.now().isoformat(),
+        "result": None,
+        "error": None,
+    }
+
+    user_data = body.user_data
+
+    # 启动后台调研任务
+    asyncio.create_task(_run_import_research(task_id, user_data))
+
+    return {
+        "success": True,
+        "task_id": task_id,
+        "message": "调研任务已提交，请轮询获取结果",
+    }
+
+
+@app.get("/api/import-and-research/{task_id}")
+async def get_research_result(task_id: str):
+    """查询调研任务状态和结果。
+
+    status="processing": 还在分析中
+    status="done": 已完成，result 字段包含调研结果
+    status="error": 出错，error 字段包含错误信息
+    """
+    task = tasks.get(task_id)
+    if not task:
+        return {"success": False, "error": "任务不存在或已过期", "status": "not_found"}
+
+    return {
+        "success": True,
+        "task_id": task_id,
+        "status": task["status"],
+        "result": task["result"],
+        "error": task["error"],
+    }
+
+
+async def _run_import_research(task_id: str, user_data: dict):
+    """后台执行导入调研任务：保存用户数据 + 调用 AI 调研。"""
+    import json
+    import os
+    from datetime import date
+
+    try:
+        # 1. 保存用户数据到本地 JSON
+        name = user_data.get("name", "未知用户")
+        safe_name = name.replace("/", "_").replace("\\", "_").replace(" ", "_")
+        today_str = date.today().isoformat()
+        users_dir = os.path.join(os.path.dirname(__file__), "data", "users")
+        os.makedirs(users_dir, exist_ok=True)
+
+        user_filename = f"{safe_name}_{today_str}.json"
+        user_path = os.path.join(users_dir, user_filename)
+        with open(user_path, "w", encoding="utf-8") as f:
+            json.dump(user_data, f, ensure_ascii=False, indent=2)
+
+        # 2. 调用 AI 调研（在线程池中运行同步函数）
+        research_result = await asyncio.to_thread(run_research, user_data)
+
+        # 3. 保存调研结果到本地 JSON
+        research_filename = f"{safe_name}_{today_str}_research.json"
+        research_path = os.path.join(users_dir, research_filename)
+        with open(research_path, "w", encoding="utf-8") as f:
+            json.dump(research_result, f, ensure_ascii=False, indent=2)
+
+        # 4. 构建返回结果
+        tasks[task_id]["status"] = "done"
+        tasks[task_id]["result"] = {
+            "success": True,
+            "user_name": name,
+            "user_school": user_data.get("school", ""),
+            "user_file": user_filename,
+            "research_file": research_filename,
+            "recommendations": research_result.get("recommendations", []),
+            "advice": research_result.get("advice", {}),
+            "risks": research_result.get("risks", []),
+            "summary": research_result.get("summary", ""),
+        }
+    except Exception as e:
+        tasks[task_id]["status"] = "error"
+        tasks[task_id]["error"] = str(e) or "调研服务暂时不可用"
+
+
 async def _cleanup_old_tasks():
     """每 5 分钟清理超过 30 分钟的任务。"""
     while True:

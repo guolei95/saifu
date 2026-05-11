@@ -113,6 +113,12 @@ textarea { resize: vertical; min-height: 60px; }
 
 <div class="container">
 
+  <!-- Tab 切换 -->
+  <div class="tab-switch">
+    <button class="tab-btn active" id="tabFormBtn" onclick="switchTab('form')">📝 填写画像</button>
+    <button class="tab-btn" id="tabImportBtn" onclick="switchTab('import')">📋 导入报告</button>
+  </div>
+
   <!-- 进度条 -->
   <div class="progress-wrap">
     <div class="progress-info"><span>完成度</span><span id="progressPercent">0%</span></div>
@@ -183,6 +189,10 @@ textarea { resize: vertical; min-height: 60px; }
           <div class="inline-other" id="interests-other-wrap">
             <input type="text" id="interests-other" placeholder="请输入其他兴趣领域" oninput="autoSave()">
           </div>
+        </div>
+        <div class="field">
+          <label class="field-label">别名/称呼 <span class="field-hint">△ 选填 · 用于导出 PDF / HTML 时的文件名，方便你识别不同用户的报告</span></label>
+          <input type="text" id="alias" placeholder="如：小明、张三、微信昵称等" oninput="autoSave()">
         </div>
       </div>
     </div>
@@ -599,6 +609,29 @@ textarea { resize: vertical; min-height: 60px; }
     </div>
   </div>
 
+  <!-- ── 导入报告面板 ── -->
+  <div id="importArea" style="display:none;">
+    <div class="section" style="border-left: 3px solid var(--accent);">
+      <div class="section-header" style="cursor:default;">
+        <span class="section-num" style="background:var(--accent);">📋</span>
+        <span class="section-title">粘贴用户报告</span>
+        <span class="section-arrow" style="visibility:hidden;">▼</span>
+      </div>
+      <div class="section-body">
+        <div class="field">
+          <label class="field-label">用户微信发来的「赛赋·竞赛匹配报告」全文</label>
+          <textarea id="reportText" placeholder="将用户微信发来的报告全文粘贴到这里...&#10;&#10;示例格式：&#10;📋 赛赋·竞赛匹配报告&#10;━━━━━━━━━━━━━━━━&#10;姓名：张三&#10;学校：清华大学&#10;专业：计算机科学与技术&#10;..." style="min-height:260px;font-size:13px;font-family:monospace;"></textarea>
+        </div>
+        <div class="match-btn-wrap">
+          <button class="btn-match" id="btnResearch" onclick="startResearch()">
+            🔍 开始调研
+          </button>
+          <p class="match-hint">AI 将解析报告数据，并对该用户进行个性化竞赛调研，预计需要 30-60 秒</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- 加载状态 -->
   <div id="loadingArea" style="display:none">
     <div class="loading-card">
@@ -640,6 +673,31 @@ textarea { resize: vertical; min-height: 60px; }
     </div>
 
     <div class="tips-card" id="tipsArea"></div>
+
+    <!-- 导出按钮 -->
+    <div class="export-buttons" id="exportButtons">
+      <button class="btn btn-outline btn-export" onclick="printToPDF()">🖨 打印 PDF</button>
+      <button class="btn btn-primary btn-export" onclick="saveAsHTML()">💾 保存 HTML</button>
+      <p class="export-hint">💡 电脑端推荐「打印 PDF」，手机端推荐「保存 HTML」</p>
+    </div>
+  </div>
+
+  <!-- ── 调研结果展示 ── -->
+  <div id="researchResultArea" style="display:none">
+    <h2 class="result-title">🏆 推荐竞赛</h2>
+    <div class="card-grid" id="researchCards"></div>
+
+    <div id="researchAdviceSection" style="display:none;">
+      <h2 class="result-title">📝 备赛建议</h2>
+      <div class="tips-card" id="researchAdvice"></div>
+    </div>
+
+    <div id="researchRisksSection" style="display:none;">
+      <h2 class="result-title">⚠️ 风险提示</h2>
+      <div class="tips-card" id="researchRisks"></div>
+    </div>
+
+    <div class="tips-card" id="researchSummaryArea" style="display:none;"></div>
   </div>
 
 </div>
@@ -691,6 +749,19 @@ textarea { resize: vertical; min-height: 60px; }
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.06); box-shadow: 0 0 12px rgba(91,106,240,0.35); }
 }
+
+/* Tab 切换 */
+.tab-switch { display: flex; gap: 8px; margin-bottom: 20px; background: #fff; border-radius: var(--radius); padding: 6px; box-shadow: var(--shadow); }
+.tab-btn { flex: 1; padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; background: transparent; color: var(--text-secondary); transition: all 0.2s; }
+.tab-btn:hover { color: var(--accent); background: var(--accent-light); }
+.tab-btn.active { background: var(--accent); color: #fff; }
+
+/* 调研风险项 */
+.risk-item { padding: 12px 0; border-bottom: 1px solid #f0f0f0; }
+.risk-item:last-child { border-bottom: none; }
+.risk-type { font-weight: 600; font-size: 14px; color: var(--required); margin-bottom: 4px; }
+.risk-detail { font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; }
+.risk-solution { font-size: 13px; color: var(--optional); font-weight: 500; }
 </style>
 
 <!-- ========== 主 JS ========== -->

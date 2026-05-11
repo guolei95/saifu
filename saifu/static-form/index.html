@@ -798,6 +798,7 @@ function collectFormData() {
   data.hasLab = (document.querySelector('[name="has-lab"]:checked') || {}).value || '';
   data.joinSchoolTeam = (document.querySelector('[name="join-school-team"]:checked') || {}).value || '';
   data.needTeammate = (document.querySelector('[name="need-teammate"]:checked') || {}).value || '';
+  data.name = data.alias;  // 兼容导入端按 name 字段解析 JSON
   data.generatedAt = new Date().toLocaleString('zh-CN', {timeZone:'Asia/Shanghai'});
   return data;
 }

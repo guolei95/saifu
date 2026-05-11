@@ -19,8 +19,8 @@ LLM_TEMPERATURE = 0.3
 LLM_MAX_TOKENS = 8192
 
 # ── 搜索配置 ──
-MAX_SEARCH_RESULTS_PER_QUERY = 5
-SLEEP_BETWEEN_QUERIES = 0.3  # 搜索间隔（防 DuckDuckGo 限速）
+MAX_SEARCH_RESULTS_PER_QUERY = 8
+SLEEP_BETWEEN_QUERIES = 0.5  # 搜索间隔（防 DuckDuckGo 限速）
 
 # ── 匹配配置 ──
 MIN_MATCH_SCORE = 50  # 低于此分数的竞赛不展示

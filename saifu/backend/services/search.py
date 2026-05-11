@@ -1,9 +1,13 @@
 """
-搜索模块 — 搜索查询词生成 + DuckDuckGo 搜索执行。
-v2: 按专业方向动态生成竞赛查询，不再硬编码 STEM 搜索词。
+搜索模块 — 搜索查询词生成 + 多引擎搜索执行。
+v3: DuckDuckGo + Bing 双引擎，确保中国竞赛信息覆盖。
 """
 import time
+import logging
+import httpx
 from config import MAX_SEARCH_RESULTS_PER_QUERY, SLEEP_BETWEEN_QUERIES
+
+logger = logging.getLogger(__name__)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -212,35 +216,32 @@ def generate_search_queries(profile: dict) -> list[str]:
     return queries
 
 
-def search_competitions(queries: list[str]) -> list[dict]:
-    """DuckDuckGo 搜索执行 — 循环执行多条查询，按 URL 去重。
-
-    Args:
-        queries: 搜索查询词列表
-
-    Returns:
-        list[dict]: 统一格式的搜索结果 [{"title", "url", "content"}, ...]
-    """
+def _search_duckduckgo(queries: list[str]) -> list[dict]:
+    """DuckDuckGo 搜索 — 用中文区域参数获取中文竞赛结果。"""
     all_results = []
     seen_urls = set()
 
-    # 导入 DuckDuckGo 搜索库
-    DDGS = None
     try:
-        from ddgs import DDGS  # 新包名
+        from ddgs import DDGS
     except ImportError:
         try:
-            from duckduckgo_search import DDGS  # 旧包名（兼容）
+            from duckduckgo_search import DDGS
         except ImportError:
-            raise RuntimeError(
-                "未安装 DuckDuckGo 搜索库。请执行: pip install ddgs"
-            )
+            logger.error("DuckDuckGo 搜索库未安装")
+            return []
 
+    collected = 0
     try:
         with DDGS() as ddgs:
+            # 先搜网页 (text)，用中文区域
             for query in queries:
                 try:
-                    results = list(ddgs.text(query, max_results=MAX_SEARCH_RESULTS_PER_QUERY))
+                    results = list(ddgs.text(
+                        query,
+                        region="cn-zh",
+                        safesearch="moderate",
+                        max_results=MAX_SEARCH_RESULTS_PER_QUERY,
+                    ))
                     for r in results:
                         url = r.get("href", "")
                         if url and url not in seen_urls:
@@ -248,13 +249,126 @@ def search_competitions(queries: list[str]) -> list[dict]:
                             all_results.append({
                                 "title": r.get("title", ""),
                                 "url": url,
+                                "content": r.get("body", "")[:400],
+                            })
+                            collected += 1
+                    time.sleep(SLEEP_BETWEEN_QUERIES)
+                except Exception as e:
+                    logger.warning(f"DuckDuckGo text 搜索失败 [{query[:30]}...]: {e}")
+                    time.sleep(1)
+
+            # 补充新闻搜索（时间敏感的竞赛信息）
+            top_queries = queries[:5]
+            for query in top_queries:
+                try:
+                    news_results = list(ddgs.news(
+                        query,
+                        region="cn-zh",
+                        safesearch="moderate",
+                        max_results=3,
+                    ))
+                    for r in news_results:
+                        url = r.get("url", "")
+                        if url and url not in seen_urls:
+                            seen_urls.add(url)
+                            all_results.append({
+                                "title": r.get("title", ""),
+                                "url": url,
                                 "content": r.get("body", "")[:300],
                             })
-                    time.sleep(SLEEP_BETWEEN_QUERIES)
+                            collected += 1
+                    time.sleep(0.5)
                 except Exception:
-                    # 单条查询失败不中断整体流程
-                    time.sleep(1)
-    except Exception:
-        pass
+                    time.sleep(0.5)
 
+    except Exception as e:
+        logger.error(f"DuckDuckGo 搜索引擎整体失败: {e}")
+
+    logger.info(f"DuckDuckGo: 收集到 {collected} 条结果（{len(queries)} 条查询）")
     return all_results
+
+
+def _search_bing(queries: list[str]) -> list[dict]:
+    """Bing 搜索 — 通过 web scraping 获取中文搜索结果。"""
+    all_results = []
+    seen_urls = set()
+    collected = 0
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                       "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept-Language": "zh-CN,zh;q=0.9",
+    }
+
+    # 只搜最重要的 8 条查询，避免被限速
+    for query in queries[:8]:
+        try:
+            url = f"https://www.bing.com/search?q={httpx.Quote(query)}&setlang=zh-cn&cc=cn"
+            resp = httpx.get(url, headers=headers, timeout=10.0, follow_redirects=True)
+
+            if resp.status_code != 200:
+                time.sleep(0.5)
+                continue
+
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(resp.text, "html.parser")
+
+            for item in soup.select("li.b_algo")[:5]:
+                title_el = item.select_one("h2 a")
+                if not title_el:
+                    continue
+                href = title_el.get("href", "")
+                if not href or href in seen_urls:
+                    continue
+
+                snippet_el = item.select_one(".b_caption p") or item.select_one(".b_lineclamp2")
+                snippet = snippet_el.get_text(strip=True) if snippet_el else ""
+
+                seen_urls.add(href)
+                all_results.append({
+                    "title": title_el.get_text(strip=True),
+                    "url": href,
+                    "content": snippet[:400],
+                })
+                collected += 1
+
+            time.sleep(0.8)
+        except Exception as e:
+            logger.warning(f"Bing 搜索失败 [{query[:30]}...]: {e}")
+            time.sleep(1)
+
+    logger.info(f"Bing: 收集到 {collected} 条结果（{min(len(queries), 8)} 条查询）")
+    return all_results
+
+
+def search_competitions(queries: list[str]) -> list[dict]:
+    """多引擎搜索 — DuckDuckGo + Bing 双引擎，按 URL 去重。
+
+    Args:
+        queries: 搜索查询词列表
+
+    Returns:
+        list[dict]: 统一格式的搜索结果 [{"title", "url", "content"}, ...]
+    """
+    # 并行搜索两个引擎
+    ddg_results = _search_duckduckgo(queries)
+    bing_results = _search_bing(queries)
+
+    # URL 去重合并，DuckDuckGo 优先
+    seen_urls = set()
+    merged = []
+
+    for r in ddg_results:
+        url = r.get("url", "")
+        if url and url not in seen_urls:
+            seen_urls.add(url)
+            merged.append(r)
+
+    for r in bing_results:
+        url = r.get("url", "")
+        if url and url not in seen_urls:
+            seen_urls.add(url)
+            merged.append(r)
+
+    logger.info(f"合并后总计 {len(merged)} 条搜索结果")
+    return merged

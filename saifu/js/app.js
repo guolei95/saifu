@@ -8,7 +8,7 @@
 // ═══════════════════════════════════════
 const API_BASE_URL = window.location.hostname === 'localhost'
   ? 'http://localhost:8000'
-  : 'https://plc-myers-added-jazz.trycloudflare.com';
+  : 'https://74328c51ed3d91.lhr.life';
 
 const MATCH_TIMEOUT = 300000; // 300 秒超时（搜索+多轮AI调用需要时间）
 

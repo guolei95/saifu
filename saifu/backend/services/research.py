@@ -2,7 +2,12 @@
 赛赋(SaiFu) 个性化竞赛调研服务 — 基于用户画像 + 知识库生成调研报告。
 """
 from services.ai_client import call_deepseek
-from services.knowledge_base import get_kb_competition_list, COMPETITION_FACTS
+from services.knowledge_base import (
+    get_kb_competition_list, COMPETITION_FACTS,
+    local_match_from_kb, enrich_with_facts,
+    get_benefit_text, get_pitfall_text, classify_competition,
+    TIPS, MYTHS,
+)
 
 
 def _build_research_prompt(user_data: dict) -> str:
@@ -139,8 +144,25 @@ def _build_research_prompt(user_data: dict) -> str:
 请开始分析。"""
 
 
+def _kb_result_to_recommendation(kb_item: dict) -> dict:
+    """将知识库匹配结果转为 research 格式的推荐条目。"""
+    return {
+        "name": kb_item.get("name", ""),
+        "level": kb_item.get("notes", "国家级"),
+        "deadline": kb_item.get("registration_deadline", "待公布"),
+        "form": kb_item.get("registration_form", "团队赛"),
+        "fee": kb_item.get("fee_amount", "免费"),
+        "reason": kb_item.get("match_reason", "A类赛事，与你的专业和技能匹配"),
+        "preparation": kb_item.get("desc", "请查看官网了解备赛要求"),
+        "match_score": kb_item.get("match_score", 75),
+        "focus": kb_item.get("focus", "保研加分,拿奖率高"),
+        "official_url": kb_item.get("official_url", "待查"),
+        "_from_kb": True,
+    }
+
+
 def run_research(user_data: dict) -> dict:
-    """执行个性化竞赛调研。
+    """执行个性化竞赛调研 — LLM分析 + 知识库强制匹配。
 
     Args:
         user_data: 从报告解析出的用户画像 dict
@@ -148,6 +170,34 @@ def run_research(user_data: dict) -> dict:
     Returns:
         dict: 调研结果，含 recommendations / advice / risks / summary
     """
+    import json
+    import re
+
+    # ── 第1步：本地知识库强制匹配（保证A类竞赛不会漏）──
+    # 构建 profile dict 用于 KB 匹配
+    profile = {
+        "school": user_data.get("school", ""),
+        "major": user_data.get("major", ""),
+        "grade": user_data.get("grade", ""),
+        "interests": user_data.get("interests", ""),
+        "skills": user_data.get("core_skills") or user_data.get("skills", ""),
+        "tech_directions": user_data.get("skill_domains", []),
+        "goals": [user_data.get("goals", "")] if isinstance(user_data.get("goals"), str) else user_data.get("goals", []),
+        "time_commitment": user_data.get("weekly_hours") or user_data.get("time_commitment", ""),
+        "avoid_types": user_data.get("avoid_types", ""),
+    }
+    kb_matches = local_match_from_kb(profile, top_n=10)
+    kb_matches = [enrich_with_facts(m) for m in kb_matches]
+
+    kb_recommendations = []
+    seen_kb_names = set()
+    for m in kb_matches:
+        name = m.get("name", "")
+        if name and name not in seen_kb_names:
+            seen_kb_names.add(name)
+            kb_recommendations.append(_kb_result_to_recommendation(m))
+
+    # ── 第2步：LLM 深度分析（知识库作为参考）──
     prompt = _build_research_prompt(user_data)
 
     messages = [
@@ -159,44 +209,58 @@ def run_research(user_data: dict) -> dict:
     raw_text = call_deepseek(messages, temperature=0.4, max_tokens=4096)
 
     # 解析 JSON
-    import json
-    import re
-
-    # 清理 markdown 代码块
     text = raw_text
     if text.startswith("```"):
         lines = text.split("\n")
         text = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
 
-    # 尝试多种解析策略
-    strategies = [text, text.strip()]
-    for s in strategies:
+    result = None
+    for s in [text, text.strip()]:
         try:
-            result = json.loads(s)
-            if isinstance(result, dict) and "recommendations" in result:
-                return result
+            parsed = json.loads(s)
+            if isinstance(parsed, dict) and "recommendations" in parsed:
+                result = parsed
+                break
         except json.JSONDecodeError:
             pass
 
-    # 最后兜底：尝试从文本中提取 JSON
-    try:
-        match = re.search(r'\{[\s\S]*"recommendations"[\s\S]*\}', text)
-        if match:
-            result = json.loads(match.group(0))
-            if isinstance(result, dict):
-                return result
-    except (json.JSONDecodeError, AttributeError):
-        pass
+    if result is None:
+        try:
+            match = re.search(r'\{[\s\S]*"recommendations"[\s\S]*\}', text)
+            if match:
+                parsed = json.loads(match.group(0))
+                if isinstance(parsed, dict):
+                    result = parsed
+        except (json.JSONDecodeError, AttributeError):
+            pass
 
-    # 完全解析失败，返回基础结构
-    return {
-        "recommendations": [],
-        "advice": {
-            "time_plan": "AI 暂未生成建议，请重试。",
-            "skill_improvement": "",
-            "team_strategy": "",
-        },
-        "risks": [],
-        "summary": "调研结果解析失败，原始回复：" + raw_text[:200],
-        "_raw": raw_text,
-    }
+    if result is None:
+        result = {
+            "recommendations": [],
+            "advice": {
+                "time_plan": "AI 暂未生成建议，请重试。",
+                "skill_improvement": "",
+                "team_strategy": "",
+            },
+            "risks": [],
+            "summary": "调研结果解析失败，请重试。",
+        }
+
+    # ── 第3步：合并（KB结果优先，LLM补充，按名称去重）──
+    llm_recs = result.get("recommendations", [])
+    llm_names = {r.get("name", "") for r in llm_recs}
+    kb_names_from_result = {r.get("name", "") for r in kb_recommendations}
+
+    # KB 结果放前面，LLM 结果追加（去重）
+    merged_recs = list(kb_recommendations)
+    for r in llm_recs:
+        name = r.get("name", "")
+        if name and name not in kb_names_from_result:
+            merged_recs.append(r)
+
+    result["recommendations"] = merged_recs
+    result["kb_matched_count"] = len(kb_recommendations)
+    result["tips"] = TIPS
+    result["myths"] = MYTHS
+
+    return result

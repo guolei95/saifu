@@ -912,6 +912,10 @@ async function startResearch() {
           if (!pollData.result || !pollData.result.success) {
             throw new Error((pollData.result && pollData.result.error) || '调研失败');
           }
+          // 保存用户名用于导出文件命名
+          if (pollData.result.user_name) {
+            currentResearchUser = pollData.result.user_name;
+          }
           renderResearchResults(pollData.result);
           return;
         }
@@ -1118,10 +1122,15 @@ function backToImport() {
 // 导出功能 — 打印 PDF + 保存 HTML
 // ═══════════════════════════════════════
 
-/** 获取用户别名（用于文件名），fallback 为空字符串 */
+/** 当前调研的用户名（调研完成后自动填入） */
+let currentResearchUser = '';
+
+/** 获取用户别名（用于文件名），优先级：输入框 > 调研用户名 > 空 */
 function getAlias() {
   const alias = (document.getElementById('alias')?.value || '').trim();
-  return alias || '';
+  if (alias) return alias;
+  if (currentResearchUser) return currentResearchUser;
+  return '';
 }
 
 /** 🖨 打印 PDF — 打开浏览器打印对话框，选「另存为 PDF」 */

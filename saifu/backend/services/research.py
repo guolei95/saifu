@@ -146,17 +146,36 @@ def _build_research_prompt(user_data: dict) -> str:
 
 def _kb_result_to_recommendation(kb_item: dict) -> dict:
     """将知识库匹配结果转为 research 格式的推荐条目。"""
+    # 截止日期：优先用 deadline_reference（如"每年5-8月"），其次用 registration_deadline
+    deadline = (
+        kb_item.get("deadline_reference") or
+        kb_item.get("registration_deadline") or
+        "待公布"
+    )
+    # 参赛形式：用 registration_form（已修复为真实数据如"团队(3人)"）
+    form = kb_item.get("registration_form") or kb_item.get("participation_type", "团队赛")
+    # 费用
+    fee = kb_item.get("fee_amount", "免费")
+    if not fee or fee == "未知":
+        fee = "免费"
+    # 描述：用 desc（现已扩到 300 字，含赛制流程+作品类型）
+    desc = kb_item.get("desc", "")[:200]
+    if not desc:
+        desc = "A类学科竞赛，请查看官网了解备赛要求"
+    # 评分
+    score = int(kb_item.get("match_score", 75))
+
     return {
         "name": kb_item.get("name", ""),
-        "level": kb_item.get("notes", "国家级"),
-        "deadline": kb_item.get("registration_deadline", "待公布"),
-        "form": kb_item.get("registration_form", "团队赛"),
-        "fee": kb_item.get("fee_amount", "免费"),
+        "level": "国家级",  # 84项A类竞赛均为国家级
+        "deadline": deadline,
+        "form": form,
+        "fee": fee,
         "reason": kb_item.get("match_reason", "A类赛事，与你的专业和技能匹配"),
-        "preparation": kb_item.get("desc", "请查看官网了解备赛要求"),
-        "match_score": kb_item.get("match_score", 75),
+        "preparation": desc,
+        "match_score": score,
         "focus": kb_item.get("focus", "保研加分,拿奖率高"),
-        "official_url": kb_item.get("official_url", "待查"),
+        "official_url": kb_item.get("official_url") or kb_item.get("registration_url", "待查"),
         "_from_kb": True,
     }
 
@@ -246,17 +265,57 @@ def run_research(user_data: dict) -> dict:
             "summary": "调研结果解析失败，请重试。",
         }
 
-    # ── 第3步：合并（KB结果优先，LLM补充，按名称去重）──
+    # ── 第3步：智能合并 — LLM 富文本优先，KB 填补事实空缺 ──
     llm_recs = result.get("recommendations", [])
-    llm_names = {r.get("name", "") for r in llm_recs}
-    kb_names_from_result = {r.get("name", "") for r in kb_recommendations}
 
-    # KB 结果放前面，LLM 结果追加（去重）
-    merged_recs = list(kb_recommendations)
+    # 简易名称归一化（用于跨 KB/LLM 去重匹配）
+    def _norm_name(n):
+        import re
+        n = n.lower().strip()
+        n = re.sub(r'[（(][^）)]*[）)]', '', n)
+        n = re.sub(r'[]「」『』""''""（）()[【】《》、，。；：！？·|/@#$%^&*+=~` _-]+', '', n)
+        return n
+
+    # 构建 KB 归一化名称 → KB 条目的映射
+    kb_norm_map = {}
+    for r in kb_recommendations:
+        n = _norm_name(r.get("name", ""))
+        if n:
+            kb_norm_map[n] = r
+
+    merged_recs = []
+    seen_norm_names = set()
+
+    # Pass 1: LLM 结果优先（富文本字段更个性化）
     for r in llm_recs:
-        name = r.get("name", "")
-        if name and name not in kb_names_from_result:
+        n = _norm_name(r.get("name", ""))
+        if not n or n in seen_norm_names:
+            continue
+        seen_norm_names.add(n)
+
+        # 如果 KB 中有同名竞赛，用 KB 事实数据补全 LLM 缺失字段
+        if n in kb_norm_map:
+            kb_item = kb_norm_map[n]
+            for field in ["level", "deadline", "form", "fee", "official_url"]:
+                llm_val = str(r.get(field, "")).strip()
+                kb_val = str(kb_item.get(field, "")).strip()
+                if not llm_val or llm_val in ("未知", "待公布", "待查", "", "None"):
+                    if kb_val and kb_val not in ("未知", "待公布", "待查", "", "None"):
+                        r[field] = kb_val
+            # 保留 LLM 的 reason 和 preparation（更个性化），不覆盖
+
+        merged_recs.append(r)
+
+    # Pass 2: KB 独有的竞赛（LLM 没推荐的），追加到末尾
+    for r in kb_recommendations:
+        n = _norm_name(r.get("name", ""))
+        if n and n not in seen_norm_names:
+            seen_norm_names.add(n)
             merged_recs.append(r)
+
+    # ── 步骤 4：用知识库 JSON 补齐所有结果的缺失字段 ──
+    from services.knowledge_base import enrich_with_facts
+    merged_recs = [enrich_with_facts(m) for m in merged_recs]
 
     result["recommendations"] = merged_recs
     result["kb_matched_count"] = len(kb_recommendations)

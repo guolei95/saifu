@@ -521,11 +521,11 @@ def _kb_entry_to_result(entry: dict, score: int, hit_count: int, profile: dict) 
     is_team = "团队" in str(form_val)
     url = entry.get("url", "")
 
-    # 描述：格式说明（截断到 150 字）+ 作品类型摘要
+    # 描述：格式说明（截断到 300 字）+ 作品类型摘要
     fmt = str(entry.get("format", ""))
     wt = str(entry.get("work_type", ""))
     desc_base = fmt if len(fmt) > 20 else wt
-    desc = desc_base[:150]
+    desc = desc_base[:300]
 
     # 推荐指数
     if score >= 88:
@@ -539,6 +539,26 @@ def _kb_entry_to_result(entry: dict, score: int, hit_count: int, profile: dict) 
 
     grade_time_text = _evaluate_grade_time(profile)
 
+    # ── 从 KB JSON 提取真实数据（不再硬编码"未知"）──
+    timing = entry.get("timing", "")
+    kb_fee = entry.get("fee", "")
+    kb_form = entry.get("form", "")
+    kb_note = entry.get("note", "")
+    kb_req = entry.get("requirements", "")
+
+    # 参赛形式：个人/团队 + 人数/要求
+    if kb_form:
+        is_team_val = "团队" in str(kb_form)
+        partic_type = "团队" if is_team_val else "个人"
+        reg_form = kb_form  # 保留完整形式描述（如"团队(3人)"）
+    else:
+        partic_type = "个人"
+        reg_form = "个人"
+
+    # 费用
+    is_free_val = (str(kb_fee) == "免费" or kb_fee == "" or kb_fee is None)
+    fee_amount_val = str(kb_fee) if kb_fee else "免费"
+
     return {
         "type": "competition",
         "name": name,
@@ -551,20 +571,20 @@ def _kb_entry_to_result(entry: dict, score: int, hit_count: int, profile: dict) 
         "benefits": "",
         "pitfalls": "",
         "recommend_index": rec_idx,
-        "registration_form": "团队" if is_team else "个人",
+        "registration_form": reg_form,
         "registration_url": url,
         "official_url": url,
-        "registration_deadline": "未知",
+        "registration_deadline": timing,  # 使用 KB 中的 timing 字段（如"每年5-8月"）
         "suitable_majors": "",
         "cross_school_allowed": True,
-        "participation_type": "团队" if is_team else "个人",
-        "is_free": (fee == "免费" or fee == ""),
-        "fee_amount": fee if fee else "未知",
-        "notes": entry.get("note", ""),
+        "participation_type": partic_type,
+        "is_free": is_free_val,
+        "fee_amount": fee_amount_val,
+        "notes": kb_note,
         "source_url": url,
         "source_type": "官方",
         "desc": desc,
-        "deadline_reference": entry.get("timing", ""),
+        "deadline_reference": timing,
         "focus": "保研加分,拿奖率高",
         "_from_kb": True,
         "_kb_id": entry.get("id"),

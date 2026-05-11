@@ -10,7 +10,7 @@
 |------|------|------|------|
 | 前端 | https://saifu.3359717058.workers.dev | Cloudflare Pages | ¥0 |
 | 域名 | saifu.asia（实名审核中） | 阿里云 | ¥18/年 |
-| 后端隧道 | https://d39e9f0f0579b5.lhr.life（localhost.run，5/11更新） | localhost.run SSH隧道 | ¥0 |
+| 后端隧道 | https://15ea226d53e4ef.lhr.life（localhost.run，5/11 15:40更新） | localhost.run SSH隧道 | ¥0 |
 | 后端本地 | localhost:8000 | 你的电脑 | — |
 | AI API | api.deepseek.com | DeepSeek | ¥0.2-0.5/次 |
 | 代码仓库 | https://github.com/guolei95/saifu | GitHub | ¥0 |

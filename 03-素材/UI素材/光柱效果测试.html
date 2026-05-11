@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>光柱效果测试 - LightPillar (背景版)</title>
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+</script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #08080f;
+    overflow: hidden;
+    font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+    height: 100vh; width: 100vw;
+  }
+
+  /* ── WebGL 背景层 (半透明) ── */
+  #pillarCanvas {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    z-index: 0;
+    opacity: 0.45;           /* ← 关键：大幅降低透明度 */
+    transition: opacity 0.6s;
+  }
+
+  /* ── 深色遮罩层：把光柱"压暗"到背景里 ── */
+  #darkOverlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    z-index: 1; pointer-events: none;
+    background: rgba(6, 6, 18, 0.50);
+  }
+
+  /* ── 暗角 ── */
+  #vignette {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    z-index: 2; pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,0.7) 100%);
+  }
+
+  /* ── 中央标题 (轻量) ── */
+  #heroTitle {
+    position: fixed; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 5; pointer-events: none; text-align: center;
+    animation: titleFade 4s ease forwards;
+  }
+  #heroTitle h1 {
+    font-size: clamp(32px, 5vw, 60px);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: rgba(255,255,255,0.85);
+    text-shadow: 0 0 60px rgba(100,80,220,0.35), 0 0 120px rgba(180,140,240,0.2);
+  }
+  #heroTitle .sub {
+    font-size: clamp(13px, 1.6vw, 17px);
+    color: rgba(255,255,255,0.4);
+    margin-top: 10px;
+    letter-spacing: 0.12em;
+  }
+  @keyframes titleFade {
+    0%, 50% { opacity: 1; }
+    100%    { opacity: 0; visibility: hidden; }
+  }
+
+  /* ── 控制面板 (右下角，紧凑) ── */
+  #controlToggle {
+    position: fixed; bottom: 24px; right: 24px; z-index: 20;
+    width: 38px; height: 38px; border-radius: 50%;
+    background: rgba(20,20,40,0.8);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.6); font-size: 18px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  #controlToggle:hover { color: #fff; border-color: rgba(255,255,255,0.35); }
+
+  #controlPanel {
+    position: fixed; bottom: 72px; right: 24px; z-index: 20;
+    background: rgba(14,14,28,0.88);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 14px; padding: 18px 22px;
+    display: none; flex-direction: column; gap: 11px;
+    min-width: 220px;
+  }
+  #controlPanel.show { display: flex; }
+  #controlPanel label {
+    display: flex; justify-content: space-between; align-items: center;
+    color: rgba(255,255,255,0.7); font-size: 11px; letter-spacing: 0.04em;
+  }
+  #controlPanel label span.val {
+    color: rgba(255,255,255,0.45);
+    font-family: "SF Mono", "Menlo", monospace; font-size: 10px;
+    min-width: 32px; text-align: right;
+  }
+  #controlPanel input[type="range"] {
+    width: 100px; accent-color: #6b5ce7;
+  }
+
+  /* ── 左下角色块 ── */
+  #colorPresets {
+    position: fixed; bottom: 28px; left: 28px; z-index: 20;
+    display: flex; gap: 8px;
+  }
+  #colorPresets .swatch {
+    width: 28px; height: 28px; border-radius: 50%;
+    cursor: pointer; border: 1.5px solid rgba(255,255,255,0.15);
+    transition: all 0.2s; opacity: 0.6;
+  }
+  #colorPresets .swatch:hover { opacity: 1; border-color: #fff; transform: scale(1.15); }
+  #colorPresets .swatch.active { opacity: 1; border-color: #fff; box-shadow: 0 0 16px currentColor; }
+
+  /* ── 兜底 ── */
+  #fallback {
+    display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    z-index: 99; background: #08080f;
+    color: #888; font-size: 16px;
+    align-items: center; justify-content: center; flex-direction: column; gap: 12px;
+  }
+  #fallback.show { display: flex; }
+</style>
+</head>
+<body>
+
+  <canvas id="pillarCanvas"></canvas>
+  <div id="darkOverlay"></div>
+  <div id="vignette"></div>
+
+  <!-- <div id="heroTitle">
+    <h1>赛赋 SaiFu</h1>
+    <div class="sub">AI 驱动 · 智能竞赛匹配</div>
+  </div> -->
+
+  <button id="controlToggle" title="调参">⚙</button>
+  <div id="controlPanel">
+    <label>强度 <span class="val" id="valIntensity">0.50</span>
+      <input type="range" id="sliderIntensity" min="0.1" max="1.5" step="0.05" value="0.5">
+    </label>
+    <label>光晕 <span class="val" id="valGlow">0.003</span>
+      <input type="range" id="sliderGlow" min="0.001" max="0.012" step="0.0005" value="0.003">
+    </label>
+    <label>速度 <span class="val" id="valSpeed">0.10</span>
+      <input type="range" id="sliderSpeed" min="0" max="0.6" step="0.02" value="0.1">
+    </label>
+    <label>宽度 <span class="val" id="valWidth">2.6</span>
+      <input type="range" id="sliderWidth" min="0.8" max="6" step="0.2" value="2.6">
+    </label>
+  </div>
+
+  <div id="colorPresets"></div>
+  <div id="fallback">⚠️ 当前浏览器不支持 WebGL</div>
+
+</body>
+
+<script type="module">
+import * as THREE from 'three';
+
+// WebGL 检测
+const tc = document.createElement('canvas');
+if (!(tc.getContext('webgl') || tc.getContext('experimental-webgl'))) {
+  document.getElementById('fallback').classList.add('show');
+  throw new Error('WebGL not supported');
+}
+
+// ── 配色 ──
+const presets = [
+  { name:'紫粉', top:'#5227FF', bottom:'#FF9FFC' },
+  { name:'蓝青', top:'#0ea5e9', bottom:'#06b6d4' },
+  { name:'金橙', top:'#c2780a', bottom:'#c53030' },
+  { name:'绿翠', top:'#0d9488', bottom:'#84cc16' },
+  { name:'玫金', top:'#be185d', bottom:'#d4a017' },
+  { name:'极光', top:'#4f46e5', bottom:'#0f766e' },
+];
+let presetIdx = 0;
+
+// 渲染色块
+const pc = document.getElementById('colorPresets');
+presets.forEach((p,i)=>{
+  const s = document.createElement('div');
+  s.className = 'swatch'+(i===0?' active':'');
+  s.title = p.name;
+  s.style.background = `linear-gradient(135deg,${p.top},${p.bottom})`;
+  s.style.color = p.top;
+  s.addEventListener('click',()=>{
+    presetIdx=i;
+    document.querySelectorAll('#colorPresets .swatch').forEach((e,j)=>e.classList.toggle('active',j===i));
+    applyPreset(p);
+  });
+  pc.appendChild(s);
+});
+
+// ── Three.js ──
+const canvas = document.getElementById('pillarCanvas');
+const renderer = new THREE.WebGLRenderer({
+  canvas, antialias:false, alpha:true,
+  powerPreference:'high-performance', stencil:false, depth:false
+});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+const scene = new THREE.Scene();
+const camera = new THREE.OrthographicCamera(-1,1,1,-1,0,1);
+
+const hex2v3 = h => { const c=new THREE.Color(h); return new THREE.Vector3(c.r,c.g,c.b); };
+
+const vs = `varying vec2 vUv; void main(){vUv=uv; gl_Position=vec4(position,1.0);}`;
+
+const fs = `precision highp float;
+uniform float uTime,uIntensity,uGlowAmount,uPillarWidth,uPillarHeight,uNoiseIntensity,uRotCos,uRotSin;
+uniform vec2 uResolution,uMouse,uWaveParams;
+uniform vec3 uTopColor,uBottomColor;
+varying vec2 vUv;
+const float SM=1.0;
+const int MI=48;
+const int WI=3;
+void main(){
+  vec2 uv=(vUv*2.0-1.0)*vec2(uResolution.x/uResolution.y,1.0);
+  vec3 ro=vec3(0,0,-10.),rd=normalize(vec3(uv,1.));
+  float rC=uRotCos,rS=uRotSin;
+  if(uMouse.x!=0.||uMouse.y!=0.){float a=uMouse.x*6.283185;rC=cos(a);rS=sin(a);}
+  vec3 col=vec3(0);float t=0.1;
+  for(int i=0;i<MI;i++){
+    vec3 p=ro+rd*t;
+    p.xz=vec2(rC*p.x-rS*p.z,rS*p.x+rC*p.z);
+    vec3 q=p;q.y=p.y*uPillarHeight+uTime;
+    float f=1.,a=1.;
+    for(int j=0;j<WI;j++){
+      q.xz=vec2(uWaveParams.y*q.x-uWaveParams.x*q.z,uWaveParams.x*q.x+uWaveParams.y*q.z);
+      q+=cos(q.zxy*f-uTime*float(j)*2.)*a;f*=2.;a*=.5;
+    }
+    float d=length(cos(q.xz))-.2;
+    float b=length(p.xz)-uPillarWidth,k=4.;
+    float h=max(k-abs(d-b),0.);
+    d=max(d,b)+h*h*.0625/k;
+    d=abs(d)*.15+.01;
+    float g=clamp((15.-p.y)/30.,0.,1.);
+    col+=mix(uBottomColor,uTopColor,g)/d;
+    t+=d*SM;if(t>50.)break;
+  }
+  float wn=uPillarWidth/3.;
+  col=tanh(col*uGlowAmount/wn);
+  col-=fract(sin(dot(gl_FragCoord.xy,vec2(12.9898,78.233)))*43758.5453)/15.*uNoiseIntensity;
+  gl_FragColor=vec4(col*uIntensity,1.);
+}`;
+
+const ws=Math.sin(0.4),wc=Math.cos(0.4);
+const mat = new THREE.ShaderMaterial({
+  vertexShader:vs, fragmentShader:fs,
+  uniforms:{
+    uTime:{value:0}, uResolution:{value:new THREE.Vector2()},
+    uMouse:{value:new THREE.Vector2(0,0)},
+    uTopColor:{value:hex2v3(presets[0].top)},
+    uBottomColor:{value:hex2v3(presets[0].bottom)},
+    uIntensity:{value:0.5}, uGlowAmount:{value:0.003},
+    uPillarWidth:{value:2.6}, uPillarHeight:{value:0.4},
+    uNoiseIntensity:{value:0.4},
+    uRotCos:{value:1}, uRotSin:{value:0},
+    uWaveParams:{value:new THREE.Vector2(ws,wc)},
+  },
+  transparent:true, depthWrite:false, depthTest:false,
+});
+scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2), mat));
+
+function resize(){
+  const w=window.innerWidth,h=window.innerHeight;
+  renderer.setSize(w,h);
+  mat.uniforms.uResolution.value.set(w,h);
+}
+window.addEventListener('resize',resize); resize();
+
+// ── 鼠标平滑跟随 (lerp) ──
+const targetMouse = new THREE.Vector2(0,0);
+const smoothMouse = new THREE.Vector2(0,0);
+window.addEventListener('mousemove',e=>{
+  targetMouse.set((e.clientX/window.innerWidth)*2-1, 0);
+},{passive:true});
+
+// ── 动画循环 ──
+let time=0, lt=performance.now();
+let rotSpeed=0.1;
+const FT=1000/60;
+
+function animate(now){
+  requestAnimationFrame(animate);
+  if(now-lt<FT) return;
+  lt=now-(now-lt)%FT;
+
+  // 鼠标平滑插值 (lerp factor 0.04 = 很跟手但不过敏)
+  smoothMouse.lerp(targetMouse, 0.04);
+  mat.uniforms.uMouse.value.copy(smoothMouse);
+
+  time+=0.016*rotSpeed;
+  mat.uniforms.uTime.value=time;
+  mat.uniforms.uRotCos.value=Math.cos(time*0.2);
+  mat.uniforms.uRotSin.value=Math.sin(time*0.2);
+  renderer.render(scene,camera);
+}
+requestAnimationFrame(animate);
+
+// ── 控件 ──
+const toggle = document.getElementById('controlToggle');
+const panel = document.getElementById('controlPanel');
+toggle.addEventListener('click',()=>panel.classList.toggle('show'));
+
+document.getElementById('sliderIntensity').addEventListener('input',e=>{
+  const v=+e.target.value; mat.uniforms.uIntensity.value=v;
+  document.getElementById('valIntensity').textContent=v.toFixed(2);
+});
+document.getElementById('sliderGlow').addEventListener('input',e=>{
+  const v=+e.target.value; mat.uniforms.uGlowAmount.value=v;
+  document.getElementById('valGlow').textContent=v.toFixed(4);
+});
+document.getElementById('sliderSpeed').addEventListener('input',e=>{
+  rotSpeed=+e.target.value;
+  document.getElementById('valSpeed').textContent=rotSpeed.toFixed(2);
+});
+document.getElementById('sliderWidth').addEventListener('input',e=>{
+  const v=+e.target.value; mat.uniforms.uPillarWidth.value=v;
+  document.getElementById('valWidth').textContent=v.toFixed(1);
+});
+
+function applyPreset(p){
+  mat.uniforms.uTopColor.value=hex2v3(p.top);
+  mat.uniforms.uBottomColor.value=hex2v3(p.bottom);
+}
+
+console.log('✅ 光柱背景版就绪 — 调参面板右下角 ⚙ 展开');
+</script>
+</html>

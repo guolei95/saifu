@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Style A: Bold Signal — 赛赋</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* === CSS CUSTOM PROPERTIES === */
+:root {
+    --bg-gradient: linear-gradient(135deg, #1a1a1a 0%, #262626 50%, #1a1a1a 100%);
+    --card-bg: #FF5722;
+    --text-primary: #ffffff;
+    --text-on-card: #1a1a1a;
+    --text-muted: #888;
+    --font-display: 'Archivo Black', sans-serif;
+    --font-body: 'Space Grotesk', sans-serif;
+    --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* === VIEWPORT FITTING === */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; overflow-x: hidden; }
+html { scroll-snap-type: y mandatory; scroll-behavior: smooth; }
+
+.slide {
+    width: 100vw; height: 100vh; height: 100dvh;
+    overflow: hidden; scroll-snap-align: start;
+    display: flex; flex-direction: column; position: relative;
+}
+
+/* === STYLE A: BOLD SIGNAL === */
+.slide {
+    background: var(--bg-gradient);
+    font-family: var(--font-body);
+    align-items: center;
+    justify-content: center;
+}
+
+/* Decorative grid pattern */
+.slide::before {
+    content: '';
+    position: absolute; inset: 0;
+    background-image:
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: clamp(30px, 4vw, 60px) clamp(30px, 4vw, 60px);
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* Bold accent card */
+.accent-card {
+    position: absolute;
+    top: clamp(2rem, 8vh, 6rem);
+    left: clamp(2rem, 6vw, 6rem);
+    width: clamp(200px, 30vw, 420px);
+    height: clamp(200px, 30vw, 420px);
+    background: var(--card-bg);
+    z-index: 1;
+    transform: scale(0.9);
+    opacity: 0;
+    transition: transform 0.8s var(--ease-out-expo),
+                opacity 0.8s var(--ease-out-expo);
+    transition-delay: 0.2s;
+}
+.slide.visible .accent-card {
+    transform: scale(1);
+    opacity: 1;
+}
+
+/* Page number on card */
+.card-number {
+    position: absolute;
+    top: clamp(1rem, 2.5vw, 2rem);
+    left: clamp(1rem, 2.5vw, 2rem);
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 3vw, 3rem);
+    color: rgba(26,26,26,0.4);
+}
+
+/* Content area */
+.slide-content {
+    position: relative; z-index: 2;
+    text-align: left; width: 100%;
+    padding: clamp(2rem, 6vw, 6rem);
+    display: flex; flex-direction: column;
+    justify-content: center;
+    max-height: 100%; overflow: hidden;
+}
+
+/* Tag line */
+.tag {
+    font-family: var(--font-body);
+    font-size: clamp(0.7rem, 1.2vw, 0.9rem);
+    color: var(--card-bg);
+    letter-spacing: 0.2em; text-transform: uppercase;
+    margin-bottom: clamp(0.5rem, 1.5vw, 1rem);
+}
+
+/* Main title */
+.title {
+    font-family: var(--font-display);
+    font-size: clamp(2.5rem, 8vw, 6rem);
+    color: var(--text-primary);
+    line-height: 1.1;
+    margin-bottom: clamp(0.5rem, 1.5vw, 1.5rem);
+}
+
+/* Subtitle */
+.subtitle {
+    font-family: var(--font-body);
+    font-size: clamp(1rem, 2.5vw, 1.75rem);
+    color: var(--text-muted);
+    font-weight: 400;
+    margin-bottom: clamp(1rem, 3vw, 2.5rem);
+}
+
+/* Quote line */
+.quote {
+    font-family: var(--font-body);
+    font-size: clamp(0.8rem, 1.3vw, 1.1rem);
+    color: #666;
+    font-style: italic;
+    border-left: 3px solid var(--card-bg);
+    padding-left: clamp(0.8rem, 1.5vw, 1.5rem);
+    max-width: min(90vw, 600px);
+}
+
+/* === ANIMATIONS === */
+.reveal { opacity: 0; transform: translateY(30px); transition: opacity 0.6s var(--ease-out-expo), transform 0.6s var(--ease-out-expo); }
+.slide.visible .reveal { opacity: 1; transform: translateY(0); }
+.reveal:nth-child(1) { transition-delay: 0.1s; }
+.reveal:nth-child(2) { transition-delay: 0.25s; }
+.reveal:nth-child(3) { transition-delay: 0.4s; }
+.reveal:nth-child(4) { transition-delay: 0.55s; }
+
+/* Keyboard hint */
+.key-hint {
+    position: absolute; bottom: clamp(1rem, 3vh, 2rem); right: clamp(1rem, 3vw, 2rem);
+    color: #444; font-size: clamp(0.6rem, 0.9vw, 0.75rem);
+    font-family: var(--font-body); z-index: 3;
+}
+
+/* === REDUCED MOTION === */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.2s !important; }
+    html { scroll-behavior: auto; }
+}
+</style>
+</head>
+<body>
+
+<section class="slide">
+    <div class="accent-card">
+        <span class="card-number">01</span>
+    </div>
+    <div class="slide-content">
+        <p class="tag reveal">— AI × 竞赛 —</p>
+        <h1 class="title reveal">赛赋 SaiFu</h1>
+        <p class="subtitle reveal">AI 驱动的竞赛全流程辅助平台</p>
+        <p class="quote reveal">赛者非异也，善假于赋也。</p>
+    </div>
+    <span class="key-hint">← → 翻页 · 空格翻页</span>
+</section>
+
+<script>
+/* Intersection Observer for animation triggers */
+const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.3 });
+document.querySelectorAll('.slide').forEach(s => observer.observe(s));
+/* Show first slide immediately */
+document.querySelector('.slide').classList.add('visible');
+</script>
+</body>
+</html>

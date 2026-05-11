@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Style C: Dark Botanical — 赛赋</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,400;0,600;1,400;1,600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* === CSS CUSTOM PROPERTIES === */
+:root {
+    --bg-primary: #0f0f0f;
+    --text-primary: #e8e4df;
+    --text-muted: #8a8580;
+    --accent-warm: #d4a574;
+    --accent-pink: #e8b4b8;
+    --accent-gold: #c9b896;
+    --font-display: 'Cormorant', serif;
+    --font-body: 'IBM Plex Sans', sans-serif;
+    --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* === VIEWPORT FITTING === */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; overflow-x: hidden; }
+html { scroll-snap-type: y mandatory; scroll-behavior: smooth; }
+
+.slide {
+    width: 100vw; height: 100vh; height: 100dvh;
+    overflow: hidden; scroll-snap-align: start;
+    display: flex; flex-direction: column; position: relative;
+}
+
+/* === STYLE C: DARK BOTANICAL === */
+.slide {
+    background: var(--bg-primary);
+    font-family: var(--font-body);
+    align-items: center;
+    justify-content: center;
+}
+
+/* Abstract soft gradient circles */
+.abstract-shape-1 {
+    position: absolute;
+    width: clamp(250px, 45vw, 600px);
+    height: clamp(250px, 45vw, 600px);
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(212,167,116,0.12) 0%, transparent 70%);
+    top: -15%; right: -12%;
+    filter: blur(clamp(30px, 5vw, 60px));
+    animation: float1 12s ease-in-out infinite;
+}
+.abstract-shape-2 {
+    position: absolute;
+    width: clamp(200px, 35vw, 450px);
+    height: clamp(200px, 35vw, 450px);
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(232,180,184,0.1) 0%, transparent 70%);
+    bottom: -10%; left: -8%;
+    filter: blur(clamp(25px, 4vw, 50px));
+    animation: float2 15s ease-in-out infinite;
+}
+.abstract-shape-3 {
+    position: absolute;
+    width: clamp(150px, 25vw, 350px);
+    height: clamp(150px, 25vw, 350px);
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(201,184,150,0.08) 0%, transparent 70%);
+    top: 55%; left: 55%;
+    filter: blur(clamp(20px, 3vw, 40px));
+    animation: float3 18s ease-in-out infinite;
+}
+
+@keyframes float1 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(-3%, 2%) scale(1.05); }
+    66% { transform: translate(2%, -1%) scale(0.95); }
+}
+@keyframes float2 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(3%, -3%) scale(1.08); }
+}
+@keyframes float3 {
+    0%, 100% { transform: translate(0, 0); }
+    50% { transform: translate(-2%, -2%); }
+}
+
+/* Thin vertical accent line */
+.accent-line {
+    position: absolute;
+    left: clamp(2rem, 6vw, 5rem);
+    top: clamp(2rem, 6vh, 5rem);
+    bottom: clamp(2rem, 6vh, 5rem);
+    width: 1px;
+    background: linear-gradient(to bottom, var(--accent-warm), transparent 70%, var(--accent-pink));
+    transform: scaleY(0); transform-origin: top;
+    transition: transform 1s var(--ease-out-expo);
+}
+.slide.visible .accent-line { transform: scaleY(1); }
+
+/* Content */
+.slide-content {
+    position: relative; z-index: 2;
+    text-align: center; width: 100%;
+    padding: clamp(2rem, 6vw, 6rem);
+    display: flex; flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    max-height: 100%; overflow: hidden;
+}
+
+.tagline {
+    font-family: var(--font-body);
+    font-weight: 300;
+    font-size: clamp(0.65rem, 1vw, 0.85rem);
+    color: var(--accent-warm);
+    letter-spacing: 0.3em; text-transform: uppercase;
+    margin-bottom: clamp(1rem, 2.5vw, 2rem);
+}
+
+.main-title {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: clamp(3rem, 10vw, 7rem);
+    color: var(--text-primary);
+    line-height: 1.05;
+    margin-bottom: clamp(0.3rem, 1vw, 0.8rem);
+    font-style: italic;
+    letter-spacing: 0.05em;
+}
+
+.subtitle {
+    font-family: var(--font-body);
+    font-weight: 300;
+    font-size: clamp(0.9rem, 1.6vw, 1.3rem);
+    color: var(--text-muted);
+    margin-bottom: clamp(1.5rem, 3vw, 3rem);
+    letter-spacing: 0.08em;
+}
+
+.quote-divider {
+    width: clamp(40px, 6vw, 80px);
+    height: 1px;
+    background: var(--accent-pink);
+    margin-bottom: clamp(1rem, 2vw, 1.5rem);
+}
+
+.quote {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-style: italic;
+    font-size: clamp(0.9rem, 1.5vw, 1.2rem);
+    color: var(--accent-gold);
+    max-width: min(80vw, 550px);
+    line-height: 1.7;
+}
+
+/* === ANIMATIONS === */
+.reveal { opacity: 0; transform: translateY(40px); transition: opacity 0.8s var(--ease-out-expo), transform 0.8s var(--ease-out-expo); }
+.slide.visible .reveal { opacity: 1; transform: translateY(0); }
+.reveal:nth-child(1) { transition-delay: 0.15s; }
+.reveal:nth-child(2) { transition-delay: 0.35s; }
+.reveal:nth-child(3) { transition-delay: 0.5s; }
+.reveal:nth-child(4) { transition-delay: 0.65s; }
+.reveal:nth-child(5) { transition-delay: 0.8s; }
+
+/* === REDUCED MOTION === */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.2s !important; }
+    html { scroll-behavior: auto; }
+    .abstract-shape-1, .abstract-shape-2, .abstract-shape-3 { animation: none; }
+}
+</style>
+</head>
+<body>
+
+<section class="slide">
+    <!-- Abstract background shapes -->
+    <div class="abstract-shape-1"></div>
+    <div class="abstract-shape-2"></div>
+    <div class="abstract-shape-3"></div>
+    <!-- Accent line -->
+    <div class="accent-line"></div>
+
+    <div class="slide-content">
+        <p class="tagline reveal">AI × 竞赛全流程</p>
+        <h1 class="main-title reveal">赛赋</h1>
+        <p class="subtitle reveal">AI-Driven Competition Platform</p>
+        <div class="quote-divider reveal"></div>
+        <p class="quote reveal">赛者非异也，善假于赋也。</p>
+    </div>
+</section>
+
+<script>
+const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.3 });
+document.querySelectorAll('.slide').forEach(s => observer.observe(s));
+document.querySelector('.slide').classList.add('visible');
+</script>
+</body>
+</html>

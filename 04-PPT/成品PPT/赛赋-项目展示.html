@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>赛赋（SaiFu）—— AI驱动的竞赛全流程辅助平台</title>
+
+<!-- === FONTS === -->
+<link href="https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,400;0,600;1,400;1,600&family=IBM+Plex+Sans:wght@300;400;500&family=Archivo+Black&family=Space+Grotesk:wght@300;400;500;600;700&family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
+
+<style>
+/* ===========================================
+   SECTION 0: CSS CUSTOM PROPERTIES
+   =========================================== */
+:root {
+    /* Shared dark base */
+    --dark-bg: #111111;
+    --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+    /* Style C (Slides 1-2): Dark Botanical */
+    --c-bg: #0f0f0f;
+    --c-text: #e8e4df;
+    --c-muted: #8a8580;
+    --c-warm: #d4a574;
+    --c-pink: #e8b4b8;
+    --c-gold: #c9b896;
+    --c-font-display: 'Cormorant', serif;
+    --c-font-body: 'IBM Plex Sans', sans-serif;
+
+    /* Style A (Slides 3-9): Bold Signal */
+    --a-bg: #1a1a1a;
+    --a-card: #FF5722;
+    --a-text: #ffffff;
+    --a-muted: #999;
+    --a-font-display: 'Archivo Black', sans-serif;
+    --a-font-body: 'Space Grotesk', sans-serif;
+
+    /* Style B (Slides 10-16): Electric Studio */
+    --b-dark: #0a0a0a;
+    --b-white: #f5f5f5;
+    --b-accent: #4361ee;
+    --b-text-light: #ffffff;
+    --b-text-dark: #0a0a0a;
+    --b-muted: #aaa;
+    --b-font-body: 'Manrope', sans-serif;
+
+    /* Typography scaling */
+    --title-size: clamp(2.2rem, 5.5vw, 4.5rem);
+    --h2-size: clamp(1.5rem, 3.8vw, 2.8rem);
+    --h3-size: clamp(1.1rem, 2.8vw, 2rem);
+    --body-size: clamp(0.9rem, 1.8vw, 1.35rem);
+    --small-size: clamp(0.72rem, 1.1vw, 0.95rem);
+
+    /* Spacing */
+    --slide-padding: clamp(1.5rem, 4vw, 4rem);
+    --content-gap: clamp(0.5rem, 2vw, 2rem);
+    --element-gap: clamp(0.25rem, 1vw, 1rem);
+}
+
+/* ===========================================
+   SECTION 1: VIEWPORT FITTING (MANDATORY)
+   =========================================== */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+    height: 100%;
+    overflow-x: hidden;
+}
+
+html {
+    scroll-snap-type: y mandatory;
+    scroll-behavior: smooth;
+}
+
+.slide {
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    scroll-snap-align: start;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+.slide-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    max-height: 100%;
+    overflow: hidden;
+    padding: var(--slide-padding);
+}
+
+img, .image-container {
+    max-width: 100%;
+    max-height: min(50vh, 400px);
+    object-fit: contain;
+}
+
+/* ===========================================
+   SECTION 2: SHARED ELEMENTS
+   =========================================== */
+
+/* Progress bar */
+.progress-bar {
+    position: fixed; top: 0; left: 0; height: 3px;
+    background: var(--a-card);
+    z-index: 1000;
+    transition: width 0.3s ease;
+    width: 0%;
+}
+
+/* Navigation dots */
+.nav-dots {
+    position: fixed; right: clamp(0.8rem, 2vw, 1.5rem);
+    top: 50%; transform: translateY(-50%);
+    z-index: 1000;
+    display: flex; flex-direction: column;
+    gap: clamp(6px, 1vh, 10px);
+}
+.nav-dot {
+    width: clamp(6px, 0.7vw, 10px);
+    height: clamp(6px, 0.7vw, 10px);
+    border-radius: 50%;
+    background: rgba(255,255,255,0.25);
+    cursor: pointer;
+    transition: background 0.3s, transform 0.3s;
+}
+.nav-dot.active { background: #FF5722; transform: scale(1.4); }
+.nav-dot.section-c.active { background: var(--c-warm); }
+.nav-dot.section-a.active { background: var(--a-card); }
+.nav-dot.section-b.active { background: var(--b-accent); }
+
+/* Keyboard hint */
+.key-hint {
+    position: fixed; bottom: clamp(0.5rem, 2vh, 1.2rem);
+    right: clamp(0.8rem, 2vw, 1.5rem);
+    color: #444; font-size: clamp(0.55rem, 0.8vw, 0.7rem);
+    font-family: 'Space Grotesk', sans-serif; z-index: 999;
+    opacity: 0.6; pointer-events: none;
+}
+
+/* ===========================================
+   SECTION 3: STYLE C — DARK BOTANICAL (Slides 1-2)
+   =========================================== */
+.slide.c-slide {
+    background: var(--c-bg);
+    font-family: var(--c-font-body);
+    align-items: center; justify-content: center;
+}
+
+/* Abstract soft blurs */
+.c-blur-1 {
+    position: absolute;
+    width: clamp(250px, 45vw, 600px);
+    height: clamp(250px, 45vw, 600px);
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(212,167,116,0.1) 0%, transparent 70%);
+    top: -10%; right: -10%;
+    filter: blur(clamp(30px, 5vw, 60px));
+    animation: cFloat1 12s ease-in-out infinite; pointer-events: none;
+}
+.c-blur-2 {
+    position: absolute;
+    width: clamp(200px, 35vw, 450px);
+    height: clamp(200px, 35vw, 450px);
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(232,180,184,0.08) 0%, transparent 70%);
+    bottom: -8%; left: -6%;
+    filter: blur(clamp(25px, 4vw, 50px));
+    animation: cFloat2 15s ease-in-out infinite; pointer-events: none;
+}
+.c-line {
+    position: absolute; left: clamp(2rem, 6vw, 5rem);
+    top: clamp(2rem, 6vh, 5rem); bottom: clamp(2rem, 6vh, 5rem);
+    width: 1px;
+    background: linear-gradient(to bottom, var(--c-warm), transparent 70%, var(--c-pink));
+    transform: scaleY(0); transform-origin: top;
+    transition: transform 1s var(--ease-out-expo);
+}
+.c-slide.visible .c-line { transform: scaleY(1); }
+
+@keyframes cFloat1 {
+    0%,100%{transform:translate(0,0) scale(1)}
+    33%{transform:translate(-3%,2%) scale(1.05)}
+    66%{transform:translate(2%,-1%) scale(0.95)}
+}
+@keyframes cFloat2 {
+    0%,100%{transform:translate(0,0) scale(1)}
+    50%{transform:translate(3%,-3%) scale(1.08)}
+}
+
+/* Style C content */
+.c-content { position: relative; z-index: 2; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; max-height: 100%; overflow: hidden; }
+.c-tag { font-weight: 300; font-size: clamp(0.75rem, 1.2vw, 1rem); color: var(--c-warm); letter-spacing: 0.3em; text-transform: uppercase; margin-bottom: clamp(0.8rem, 2vw, 1.5rem); }
+.c-title { font-family: var(--c-font-display); font-weight: 600; font-style: italic; font-size: clamp(3rem, 9vw, 7rem); color: var(--c-text); line-height: 1.05; margin-bottom: clamp(0.2rem, 0.8vw, 0.6rem); letter-spacing: 0.05em; }
+.c-subtitle { font-weight: 300; font-size: clamp(1rem, 1.8vw, 1.45rem); color: var(--c-muted); margin-bottom: clamp(1rem, 2.5vw, 2.5rem); letter-spacing: 0.08em; }
+.c-divider { width: clamp(30px, 5vw, 60px); height: 1px; background: var(--c-pink); margin-bottom: clamp(0.8rem, 1.5vw, 1.2rem); }
+.c-quote { font-family: var(--c-font-display); font-style: italic; font-size: clamp(0.95rem, 1.5vw, 1.3rem); color: var(--c-gold); max-width: min(75vw, 550px); line-height: 1.7; }
+
+/* Style C: TOC slide */
+.c-toc { text-align: left; align-items: flex-start; padding-left: clamp(3rem, 8vw, 8rem); }
+.c-toc-title { font-family: var(--c-font-display); font-weight: 600; font-style: italic; font-size: clamp(1.8rem, 4vw, 3.2rem); color: var(--c-text); margin-bottom: clamp(1.2rem, 3vw, 3rem); }
+.c-toc-list { list-style: none; display: flex; flex-direction: column; gap: clamp(0.45rem, 1vh, 0.85rem); }
+.c-toc-item { font-size: clamp(0.9rem, 1.5vw, 1.2rem); color: var(--c-muted); display: flex; align-items: baseline; gap: clamp(0.5rem, 1.2vw, 1.2rem); transition: color 0.3s; }
+.c-toc-num { font-family: var(--c-font-display); font-weight: 600; font-style: italic; font-size: clamp(1.1rem, 1.8vw, 1.6rem); color: var(--c-warm); min-width: clamp(1.2rem, 2vw, 2rem); }
+
+/* ===========================================
+   SECTION 4: STYLE A — BOLD SIGNAL (Slides 3-9)
+   =========================================== */
+.slide.a-slide {
+    background: linear-gradient(135deg, #1a1a1a 0%, #262626 50%, #1a1a1a 100%);
+    font-family: var(--a-font-body);
+}
+.a-slide::before {
+    content: '';
+    position: absolute; inset: 0;
+    background-image:
+        linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+    background-size: clamp(25px, 3.5vw, 55px) clamp(25px, 3.5vw, 55px);
+    pointer-events: none; z-index: 0;
+}
+
+/* Bold accent card (corner decoration) */
+.a-card {
+    position: absolute;
+    top: clamp(1.5rem, 6vh, 4rem);
+    right: clamp(1.5rem, 6vw, 5rem);
+    width: clamp(120px, 18vw, 260px);
+    height: clamp(120px, 18vw, 260px);
+    background: var(--a-card);
+    z-index: 1; opacity: 0.08;
+    transition: opacity 0.6s;
+}
+.a-slide.visible .a-card { opacity: 1; }
+.a-card-num {
+    position: absolute;
+    top: clamp(0.6rem, 1.5vw, 1.2rem);
+    left: clamp(0.6rem, 1.5vw, 1.2rem);
+    font-family: var(--a-font-display);
+    font-size: clamp(1rem, 2vw, 2rem);
+    color: rgba(26,26,26,0.5);
+}
+
+/* Style A content */
+.a-content { position: relative; z-index: 2; display: flex; flex-direction: column; justify-content: center; max-height: 100%; overflow: hidden; padding: var(--slide-padding); }
+.a-tag { font-size: clamp(0.72rem, 1.1vw, 0.95rem); color: var(--a-card); letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: clamp(0.4rem, 1vw, 0.8rem); font-weight: 500; }
+.a-title { font-family: var(--a-font-display); font-size: clamp(1.9rem, 5vw, 3.6rem); color: var(--a-text); line-height: 1.15; margin-bottom: clamp(0.5rem, 1.5vw, 1.2rem); }
+.a-body { font-size: clamp(0.9rem, 1.5vw, 1.2rem); color: #bbb; line-height: 1.6; max-width: min(85vw, 750px); }
+.a-body strong { color: var(--a-text); }
+.a-highlight { color: var(--a-card); font-weight: 600; }
+
+/* Style A: numbered list */
+.a-list { list-style: none; display: flex; flex-direction: column; gap: clamp(0.35rem, 0.9vh, 0.7rem); margin-top: clamp(0.5rem, 1.5vw, 1rem); }
+.a-list li { font-size: clamp(0.85rem, 1.4vw, 1.1rem); color: #bbb; padding-left: clamp(1rem, 2vw, 1.5rem); position: relative; line-height: 1.5; }
+.a-list li::before { content: ''; position: absolute; left: 0; top: 0.55em; width: clamp(6px, 0.7vw, 9px); height: clamp(6px, 0.7vw, 9px); background: var(--a-card); border-radius: 2px; }
+
+/* Style A: table */
+.a-table { width: 100%; max-width: min(90vw, 950px); border-collapse: collapse; margin-top: clamp(0.5rem, 1.5vw, 1rem); }
+.a-table th { font-family: var(--a-font-display); font-size: clamp(0.7rem, 1vw, 0.85rem); color: var(--a-card); text-align: left; padding: clamp(0.3rem, 0.8vh, 0.5rem) clamp(0.5rem, 1.2vw, 0.9rem); border-bottom: 2px solid rgba(255,87,34,0.3); text-transform: uppercase; letter-spacing: 0.1em; font-weight: 400; }
+.a-table td { font-size: clamp(0.72rem, 1.1vw, 0.95rem); color: #bbb; padding: clamp(0.3rem, 0.7vh, 0.5rem) clamp(0.5rem, 1.2vw, 0.9rem); border-bottom: 1px solid rgba(255,255,255,0.06); vertical-align: top; }
+.a-table tr:hover td { background: rgba(255,87,34,0.04); color: #ddd; }
+.a-table .num { color: var(--a-card); font-weight: 600; font-family: var(--a-font-display); text-align: center; }
+.a-table .highlight-cell { color: #fff; font-weight: 600; }
+
+/* Style A: quote block */
+.a-quote { font-size: clamp(0.9rem, 1.4vw, 1.15rem); color: #ccc; font-style: italic; border-left: 3px solid var(--a-card); padding-left: clamp(0.8rem, 1.5vw, 1.5rem); margin-top: clamp(0.5rem, 1.5vw, 1rem); max-width: min(80vw, 650px); line-height: 1.5; }
+
+/* Style A: flow chart */
+.a-flow { display: flex; flex-direction: column; gap: clamp(0.25rem, 0.5vh, 0.4rem); margin-top: clamp(0.5rem, 1.5vw, 1rem); }
+.a-flow-item { display: flex; align-items: center; gap: clamp(0.5rem, 1.2vw, 1rem); font-size: clamp(0.85rem, 1.3vw, 1.05rem); color: #bbb; line-height: 1.4; }
+.a-flow-arrow { color: var(--a-card); font-size: clamp(0.9rem, 1.4vw, 1.2rem); min-width: clamp(1.5rem, 2.5vw, 2.5rem); text-align: center; }
+.a-flow-item.final { color: var(--a-text); font-weight: 600; font-size: clamp(0.9rem, 1.4vw, 1.15rem); }
+
+/* Style A: big finding */
+.a-big-find { margin-top: clamp(0.8rem, 2vw, 1.5rem); }
+.a-find-title { font-family: var(--a-font-display); font-size: clamp(1.4rem, 3.5vw, 2.4rem); color: var(--a-card); line-height: 1.2; margin-bottom: clamp(0.3rem, 0.8vw, 0.6rem); }
+.a-find-sub { font-size: clamp(0.9rem, 1.5vw, 1.2rem); color: #ccc; line-height: 1.5; }
+
+/* ===========================================
+   SECTION 5: STYLE B — ELECTRIC STUDIO (Slides 10-16)
+   =========================================== */
+.slide.b-slide {
+    font-family: var(--b-font-body);
+}
+
+.b-panel-top {
+    flex: 1; /* auto ratio */
+    background: var(--b-dark);
+    display: flex; align-items: center; padding: var(--slide-padding);
+    position: relative; overflow: hidden;
+    min-height: 35vh;
+}
+.b-panel-bottom {
+    flex: 1;
+    background: var(--b-white);
+    display: flex; align-items: center; padding: var(--slide-padding);
+    position: relative; overflow: hidden;
+}
+.b-panel-top::after {
+    content: '';
+    position: absolute;
+    right: 0; top: 0; bottom: 0;
+    width: clamp(3px, 0.4vw, 6px);
+    background: var(--b-accent);
+    transform: scaleY(0); transform-origin: top;
+    transition: transform 0.7s var(--ease-out-expo);
+}
+.b-slide.visible .b-panel-top::after { transform: scaleY(1); }
+.b-slide.visible .b-panel-bottom::after { transform: scaleY(1); }
+
+.b-panel-bottom::after {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: clamp(3px, 0.4vw, 6px);
+    background: var(--b-accent);
+    transform: scaleY(0); transform-origin: bottom;
+    transition: transform 0.7s var(--ease-out-expo);
+    transition-delay: 0.2s;
+}
+
+/* Style B content */
+.b-top-content { width: 100%; max-width: min(88vw, 880px); z-index: 1; }
+.b-title-light { font-weight: 800; font-size: clamp(1.8rem, 4.5vw, 3.2rem); color: var(--b-text-light); line-height: 1.15; margin-bottom: clamp(0.3rem, 0.8vw, 0.6rem); }
+.b-sub-light { font-size: clamp(0.85rem, 1.3vw, 1.05rem); color: var(--b-muted); font-weight: 400; }
+.b-bottom-content { width: 100%; max-width: min(88vw, 880px); z-index: 1; }
+
+/* Style B: table */
+.b-table { width: 100%; border-collapse: collapse; }
+.b-table th { font-weight: 700; font-size: clamp(0.68rem, 0.95vw, 0.85rem); color: var(--b-accent); text-align: left; padding: clamp(0.3rem, 0.7vh, 0.5rem) clamp(0.4rem, 1vw, 0.7rem); border-bottom: 2px solid rgba(67,97,238,0.3); text-transform: uppercase; letter-spacing: 0.08em; }
+.b-table td { font-size: clamp(0.7rem, 1vw, 0.9rem); color: #333; padding: clamp(0.25rem, 0.6vh, 0.4rem) clamp(0.4rem, 1vw, 0.7rem); border-bottom: 1px solid rgba(0,0,0,0.06); vertical-align: top; line-height: 1.4; }
+.b-table tr:hover td { background: rgba(67,97,238,0.04); }
+.b-table .hcell { color: var(--b-accent); font-weight: 700; }
+
+/* Style B: list */
+.b-list { list-style: none; display: flex; flex-direction: column; gap: clamp(0.3rem, 0.7vh, 0.55rem); }
+.b-list li { font-size: clamp(0.75rem, 1.05vw, 0.95rem); color: #444; padding-left: clamp(1rem, 2vw, 1.5rem); position: relative; line-height: 1.5; }
+.b-list li::before { content: ''; position: absolute; left: 0; top: 0.5em; width: clamp(5px, 0.5vw, 7px); height: clamp(5px, 0.5vw, 7px); background: var(--b-accent); border-radius: 50%; }
+
+/* Style B: flow/code block */
+.b-code-block { font-family: 'Manrope', monospace; font-size: clamp(0.72rem, 1vw, 0.9rem); color: #555; background: rgba(0,0,0,0.03); padding: clamp(0.5rem, 1vw, 0.8rem) clamp(0.6rem, 1.2vw, 1rem); border-radius: 6px; line-height: 1.6; white-space: pre; border: 1px solid rgba(0,0,0,0.06); overflow-x: auto; max-width: 100%; }
+
+/* Style B: 2-column grid for cards */
+.b-grid { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(0.4rem, 0.8vw, 0.6rem); width: 100%; }
+.b-card { background: rgba(0,0,0,0.03); padding: clamp(0.5rem, 1vw, 0.8rem); border-radius: 6px; border: 1px solid rgba(0,0,0,0.06); }
+.b-card-title { font-weight: 700; font-size: clamp(0.8rem, 1.05vw, 0.95rem); color: #222; margin-bottom: clamp(0.2rem, 0.4vw, 0.35rem); }
+.b-card-desc { font-size: clamp(0.72rem, 0.95vw, 0.85rem); color: #666; line-height: 1.5; }
+
+/* Style B: step list */
+.b-steps { display: flex; flex-direction: column; gap: clamp(0.3rem, 0.6vh, 0.5rem); width: 100%; }
+.b-step { display: flex; align-items: flex-start; gap: clamp(0.5rem, 1vw, 0.8rem); padding: clamp(0.3rem, 0.6vw, 0.5rem) 0; border-bottom: 1px solid rgba(0,0,0,0.05); }
+.b-step-num { font-weight: 800; font-size: clamp(1.2rem, 2vw, 1.8rem); color: var(--b-accent); min-width: clamp(1.5rem, 2.5vw, 2rem); line-height: 1; }
+.b-step-body { flex: 1; }
+.b-step-title { font-weight: 700; font-size: clamp(0.8rem, 1.05vw, 0.95rem); color: #222; margin-bottom: clamp(0.15rem, 0.3vw, 0.25rem); }
+.b-step-desc { font-size: clamp(0.72rem, 0.95vw, 0.85rem); color: #666; line-height: 1.4; }
+
+/* ===========================================
+   SECTION 6: ANIMATIONS
+   =========================================== */
+.reveal { opacity: 0; transform: translateY(25px); transition: opacity 0.5s var(--ease-out-expo), transform 0.5s var(--ease-out-expo); }
+.slide.visible .reveal { opacity: 1; transform: translateY(0); }
+.reveal:nth-child(1) { transition-delay: 0.08s; }
+.reveal:nth-child(2) { transition-delay: 0.16s; }
+.reveal:nth-child(3) { transition-delay: 0.24s; }
+.reveal:nth-child(4) { transition-delay: 0.32s; }
+.reveal:nth-child(5) { transition-delay: 0.40s; }
+.reveal:nth-child(6) { transition-delay: 0.48s; }
+.reveal:nth-child(7) { transition-delay: 0.56s; }
+.reveal:nth-child(8) { transition-delay: 0.64s; }
+.reveal:nth-child(9) { transition-delay: 0.72s; }
+.reveal:nth-child(10) { transition-delay: 0.80s; }
+
+/* ===========================================
+   SECTION 7: INLINE EDITING
+   =========================================== */
+.edit-hotzone {
+    position: fixed; top: 0; left: 0;
+    width: 80px; height: 80px;
+    z-index: 10000; cursor: pointer;
+}
+.edit-toggle {
+    position: fixed; top: clamp(0.5rem, 2vh, 1rem);
+    left: clamp(0.5rem, 2vw, 1rem);
+    z-index: 10001; background: rgba(0,0,0,0.7);
+    color: #fff; border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 6px; padding: clamp(4px, 0.6vw, 8px) clamp(8px, 1vw, 14px);
+    cursor: pointer; font-size: clamp(0.7rem, 1vw, 0.9rem); font-family: 'Space Grotesk', sans-serif;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.3s ease;
+    backdrop-filter: blur(8px);
+}
+.edit-toggle.show, .edit-toggle.active { opacity: 1; pointer-events: auto; }
+
+[contenteditable="true"] {
+    outline: 2px dashed rgba(255,87,34,0.5);
+    outline-offset: 4px; border-radius: 3px;
+    cursor: text; transition: outline-color 0.2s;
+}
+[contenteditable="true"]:focus {
+    outline: 2px solid var(--a-card);
+    background: rgba(255,87,34,0.06);
+}
+
+.edit-mode .key-hint::after { content: ' | E 退出编辑 | Ctrl+S 保存'; }
+
+/* ===========================================
+   SECTION 8: RESPONSIVE BREAKPOINTS
+   =========================================== */
+@media (max-height: 700px) {
+    :root {
+        --slide-padding: clamp(0.75rem, 3vw, 2rem);
+        --content-gap: clamp(0.4rem, 1.5vw, 1rem);
+        --title-size: clamp(1.5rem, 5vw, 2.8rem);
+        --h2-size: clamp(1.1rem, 3.2vw, 1.9rem);
+    }
+}
+@media (max-height: 600px) {
+    :root {
+        --slide-padding: clamp(0.5rem, 2.5vw, 1.5rem);
+        --title-size: clamp(1.3rem, 4.5vw, 2.2rem);
+        --body-size: clamp(0.75rem, 1.3vw, 1rem);
+    }
+    .nav-dots, .key-hint { display: none; }
+    .b-panel-top { min-height: 30vh; }
+}
+@media (max-height: 500px) {
+    :root {
+        --slide-padding: clamp(0.4rem, 2vw, 1rem);
+        --title-size: clamp(1.1rem, 3.8vw, 1.6rem);
+        --h2-size: clamp(0.95rem, 2.8vw, 1.35rem);
+        --body-size: clamp(0.7rem, 1.1vw, 0.9rem);
+    }
+}
+@media (max-width: 600px) {
+    :root { --title-size: clamp(1.25rem, 7vw, 2.5rem); }
+    .b-grid { grid-template-columns: 1fr; }
+    .a-card { width: clamp(80px, 25vw, 150px); height: clamp(80px, 25vw, 150px); }
+}
+
+/* ===========================================
+   SECTION 9: REDUCED MOTION
+   =========================================== */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.2s !important; }
+    html { scroll-behavior: auto; }
+}
+</style>
+</head>
+<body>
+
+<!-- Progress bar -->
+<div class="progress-bar" id="progressBar"></div>
+
+<!-- Edit mode UI -->
+<div class="edit-hotzone" id="editHotzone"></div>
+<button class="edit-toggle" id="editToggle" title="编辑模式 (E)">✏️ 编辑</button>
+
+<!-- Keyboard hint -->
+<div class="key-hint">← → / 空格翻页 · 点击右侧圆点跳转</div>
+
+<!-- ============================================
+     SLIDE 1: 封面 (Style C — Dark Botanical)
+     ============================================ -->
+<section class="slide c-slide" data-section="c">
+    <div class="c-blur-1"></div>
+    <div class="c-blur-2"></div>
+    <div class="c-line"></div>
+    <div class="c-content slide-content">
+        <p class="c-tag reveal">AI × 竞赛全流程</p>
+        <h1 class="c-title reveal">赛赋</h1>
+        <p class="c-subtitle reveal">SaiFu · AI 驱动的竞赛全流程辅助平台</p>
+        <div class="c-divider reveal"></div>
+        <p class="c-quote reveal">赛者非异也，善假于赋也。</p>
+    </div>
+</section>
+
+<!-- ============================================
+     SLIDE 2: 目录 (Style C — Dark Botanical)
+     ============================================ -->
+<section class="slide c-slide" data-section="c">
+    <div class="c-blur-1"></div>
+    <div class="c-blur-2"></div>
+    <div class="c-line"></div>
+    <div class="c-content c-toc slide-content">
+        <h2 class="c-toc-title reveal">目录</h2>
+        <ul class="c-toc-list">
+            <li class="c-toc-item reveal"><span class="c-toc-num">01</span> 问题 — 信息差比想象中更严重</li>
+            <li class="c-toc-item reveal"><span class="c-toc-num">02</span> 痛点 — 四个核心障碍</li>
+            <li class="c-toc-item reveal"><span class="c-toc-num">03</span> 市场 — 数据与政策</li>
+            <li class="c-toc-item reveal"><span class="c-toc-num">04</span> 竞品 — 17 个竞品调研的核心发现</li>
+            <li class="c-toc-item reveal"><span class="c-toc-num">05</span> 定位 — 赛赋的差异化卡位</li>
+            <li class="c-toc-item reveal"><span class="c-toc-num">06</span> 资源 — 黄石本地优势</li>
+            <li class="c-toc-item reveal"><span class="c-toc-num">07</span> 壁垒 — 为什么很难复制</li>
+            <li class="c-toc-item reveal"><span class="c-toc-num">08</span> 行动 — 下一步规划</li>
+        </ul>
+    </div>
+</section>
+
+<!-- ============================================
+     SLIDE 3: 信息差 (Style A — Bold Signal)
+     ============================================ -->
+<section class="slide a-slide" data-section="a">
+    <div class="a-card"><span class="a-card-num">03</span></div>
+    <div class="a-content">
+        <p class="a-tag reveal">— 问题 —</p>
+        <h2 class="a-title reveal">信息差，比想象中更严重</h2>
+        <p class="a-body reveal">一个学生一整个学期，从班级群和学校官方渠道接收到的<span class="a-highlight">有效竞赛信息，平均不超过 5 条</span>。</p>
+        <p class="a-body reveal">班级群日常需要覆盖课程调整、活动组织、事务通知等大量内容，竞赛信息天然穿插其中，<span class="a-highlight">容易被淹没</span>。</p>
+        <p class="a-body reveal">同样有参赛意愿的学生，资源丰富的高校与普通学校之间，<span class="a-highlight">信息获取量可以差 5~10 倍</span>。</p>
+        <div class="a-quote reveal">信息差的结果：到求职或保研时，差距已经拉开——不是因为谁更努力，而是因为谁更早知道。</div>
+        <p class="a-body reveal" style="margin-top:var(--content-gap);"><strong>所以我们想做一件事：让信息不再是门槛。</strong></p>
+    </div>
+</section>
+
+<!-- ============================================
+     SLIDE 4: 四个核心痛点 (Style A)
+     ============================================ -->
+<section class="slide a-slide" data-section="a">
+    <div class="a-card"><span class="a-card-num">04</span></div>
+    <div class="a-content">
+        <p class="a-tag reveal">— 痛点 —</p>
+        <h2 class="a-title reveal">四个核心障碍</h2>
+        <table class="a-table reveal">
+            <thead><tr><th style="width:8%">#</th><th style="width:18%">痛点</th><th>具体表现</th></tr></thead>
+            <tbody>
+                <tr><td class="num">❶</td><td class="highlight-cell">信息差</td><td>高价值竞赛靠人脉口口相传，班级群和官网找不到</td></tr>
+                <tr><td class="num">❷</td><td class="highlight-cell">分不清</td><td>不知道什么是「水赛」、什么对保研/考研/求职有帮助</td></tr>
+                <tr><td class="num">❸</td><td class="highlight-cell">没方向</td><td>专业课没学完，不知道自己适合什么比赛，怕乱报浪费时间和钱</td></tr>
+                <tr><td class="num">❹</td><td class="highlight-cell">找队友</td><td>想参加但找不到志同道合、能力互补的搭档</td></tr>
+            </tbody>
+        </table>
+        <div class="a-quote reveal">核心结论：双非学生竞赛参与率低，根本原因不是「不想参加」，而是「不知道有什么」和「不知道怎么准备」。</div>
+    </div>
+</section>
+
+<!-- ============================================
+     SLIDE 5: 逻辑线 (Style A)
+     ============================================ -->
+<section class="slide a-slide" data-section="a">
+    <div class="a-card"><span class="a-card-num">05</span></div>
+    <div class="a-content">
+        <p class="a-tag reveal">— 逻辑 —</p>
+        <h2 class="a-title reveal">一句话逻辑线</h2>
+        <div class="a-flow">
+            <p class="a-flow-item reveal"><span class="a-flow-arrow">·</span>双非学生竞赛参与率低 — 不是不想参加，而是「不知道有什么」和「不知道怎么准备」</p>
+            <p class="a-flow-item reveal"><span class="a-flow-arrow">↓</span>现有竞赛平台只做信息聚合，不做 AI 全流程辅助</p>
+            <p class="a-flow-item reveal"><span class="a-flow-arrow">↓</span>赛赋做覆盖 <strong style="color:#FF5722;">选赛 → 备赛 → 方案 → 路演</strong> 的 AI 全流程平台</p>
+            <p class="a-flow-item final reveal"><span class="a-flow-arrow">→</span>让每个学生都有底气参赛</p>
+        </div>
+    </div>
+</section>
+
+<!-- ============================================
+     SLIDE 6: 市场数据 (Style A)
+     ============================================ -->
+<section class="slide a-slide" data-section="a">
+    <div class="a-card"><span class="a-card-num">06</span></div>
+    <div class="a-content">
+        <p class="a-tag reveal">— 市场 —</p>
+        <h2 class="a-title reveal">这不是小赛道</h2>
+        <table class="a-table reveal">
+            <thead><tr><th>指标</th><th>数据</th><th style="width:20%">来源</th></tr></thead>
+            <tbody>
+                <tr><td>学科竞赛信息平台市场规模</td><td class="highlight-cell">100 亿元（2025），年增速 20%</td><td>豆丁网</td></tr>
+                <tr><td>学生参与平台市场（中国）</td><td class="highlight-cell">46.49 亿元</td><td>贝哲斯咨询</td></tr>
+                <tr><td>学生参与平台市场（全球）</td><td class="highlight-cell">147.86 亿元</td><td>格隆汇</td></tr>
+                <tr><td>全球个性化学习 AI 系统</td><td>9.14 亿美元，预计 2032 年达 16.62 亿</td><td>QYResearch</td></tr>
+                <tr><td>国内 AI 教育应用月活</td><td class="highlight-cell">1.2 亿，同比增长 340%</td><td>QuestMobile</td></tr>
+                <tr><td>AI 竞赛辅助工具 Q1 2026 增长</td><td class="highlight-cell">环比增长 127%</td><td>易观分析</td></tr>
+                <tr><td>「信息搜集与推荐」需求占比</td><td class="highlight-cell">68%（所有需求中最高）</td><td>易观分析</td></tr>
+            </tbody>
+        </table>
+        <p class="a-body reveal" style="margin-top:var(--element-gap);"><strong>关键词：需求真实 · 增速快 · 赛道宽</strong></p>
+    </div>
+</section>
+
+<!-- ============================================
+     SLIDE 7: 政策支撑 (Style A)
+     ============================================ -->
+<section class="slide a-slide" data-section="a">
+    <div class="a-card"><span class="a-card-num">07</span></div>
+    <div class="a-content">
+        <p class="a-tag reveal">— 政策 —</p>
+        <h2 class="a-title reveal">政策支撑</h2>
+        <p class="a-body reveal"><strong>竞赛成绩与个人发展的直接关联：</strong></p>
+        <ul class="a-list reveal">
+            <li>保研综测占比约 30% — 竞赛是除学业成绩外最大的加分项（来源：高顿教育 / 在职研究生网）</li>
+            <li>无论保研、考研复试还是求职面试，竞赛经历都是证明实践能力的最短路径</li>
+        </ul>
+        <p class="a-body reveal" style="margin-top:var(--content-gap);"><strong>政策层面的刚性支撑：</strong></p>
+        <ul class="a-list reveal">
+            <li>中国高等教育学会发布 <span class="a-highlight">84 项白名单赛事</span>（来源：2024 年高校竞赛评估专家工作组）</li>
+            <li>各高校自建竞赛分级体系（如重庆交大 A-E 五类、深圳大学 I-III 类）</li>
+        </ul>
+        <div class="a-quote reveal">政策有、制度有、需求有——缺的是一个帮学生真正用起来的工具。</div>
+    </div>
+</section>
+
+<!-- ============================================
+     SLIDE 8: 竞品全景 (Style A)
+     ============================================ -->
+<section class="slide a-slide" data-section="a">
+    <div class="a-card"><span class="a-card-num">08</span></div>
+    <div class="a-content">
+        <p class="a-tag reveal">— 竞品 —</p>
+        <h2 class="a-title reveal">17 个竞品调研 · 6 个最值得关注</h2>
+        <table class="a-table reveal">
+            <thead><tr><th style="width:15%">竞品</th><th style="width:35%">一句话定位</th><th>核心短板</th></tr></thead>
+            <tbody>
+                <tr><td class="highlight-cell">赛氪</td><td>运营 12 年，3 万+赛事信息聚合</td><td>无 AI 推荐，信息陈列不筛选</td></tr>
+                <tr><td class="highlight-cell">保研岛 AI 竞赛</td><td>2026.3 上线，100+ 高含金量竞赛</td><td>仅服务保研生，数据滞后 1-2 周</td></tr>
+                <tr><td class="highlight-cell">创赛之星</td><td>AI 选题 + 方案打磨</td><td>无信息搜集与个性化推荐</td></tr>
+                <tr><td class="highlight-cell">iLEAD（北邮）</td><td>大创竞赛 AI 匹配+导师对接</td><td>校内项目，外部难复制</td></tr>
+                <tr><td class="highlight-cell">晨星创投专利</td><td>多模态 AI 竞赛辅助系统</td><td>需用户已有明确方向与材料</td></tr>
+                <tr><td class="highlight-cell">ScholarMatch</td><td>海外奖学金+竞赛 AI 聚合</td><td>国内竞赛覆盖不足</td></tr>
+            </tbody>
+        </table>
+        <p class="a-body reveal" style="margin-top:var(--element-gap);font-size:clamp(0.6rem, 0.9vw, 0.75rem);color:#888;">调研范围：17 个竞品，覆盖国内外信息聚合平台、AI 辅助工具、垂直赛道产品。</p>
+    </div>
+</section>
+
+<!-- ============================================
+     SLIDE 9: 核心发现 — 断层线 (Style A)
+     ============================================ -->
+<section class="slide a-slide" data-section="a">
+    <div class="a-card"><span class="a-card-num">09</span></div>
+    <div class="a-content">
+        <p class="a-tag reveal">— 核心发现 —</p>
+        <h2 class="a-title reveal">断层线</h2>
+        <div class="a-flow reveal" style="gap:clamp(0.15rem, 0.3vh, 0.25rem);">
+            <p class="a-flow-item"><span class="a-flow-arrow" style="color:#888;">▸</span>帮高手提上限 → 晨星、创赛之星</p>
+            <p class="a-flow-item"><span class="a-flow-arrow" style="color:#888;">▸</span>帮所有人展示信息 → 赛氪、我爱竞赛网</p>
+            <p class="a-flow-item"><span class="a-flow-arrow" style="color:#888;">▸</span>帮保研生选竞赛 → 保研岛、后保研、高顿去保研</p>
+            <p class="a-flow-item" style="color:#444;border-top:2px dashed rgba(255,87,34,0.4);padding-top:clamp(0.3rem,0.6vh,0.5rem);margin-top:clamp(0.2rem,0.4vh,0.3rem);">
+                <span class="a-flow-arrow" style="color:#FF5722;font-weight:700;">▾</span>帮新手从 0 到 1 → <strong style="color:#fff;">无人覆盖</strong> ← <strong style="color:#FF5722;">赛赋卡位</strong>
+            </p>
+        </div>
+        <div class="a-big-find reveal">
+            <p class="a-find-title">17 个竞品调研的核心结论</p>
+            <p class="a-find-sub">没有人在做「从 0 到 1」的竞赛入门引导。<br>帮高手从 80 到 95 分的人很多。<br>帮新手从 0 到 60 分的人，没有。</p>
+        </div>
+    </div>
+</section>
+
+<!-- ============================================
+     SLIDE 10: 晨星专利对比 (Style B)
+     ============================================ -->
+<section class="slide b-slide" data-section="b">
+    <div class="b-panel-top">
+        <div class="b-top-content">
+            <p class="b-sub-light reveal" style="margin-bottom:clamp(0.3rem,0.6vw,0.5rem);">— 竞品深挖 —</p>
+            <h2 class="b-title-light reveal">晨星创投专利：最值得关注的竞品</h2>
+            <p class="b-sub-light reveal" style="margin-top:clamp(0.3rem,0.6vw,0.5rem);">2025.11 申请《基于 AI 大模型的大学生竞赛智能辅助系统》专利，2026.3 公开<br>功能涵盖：多模态解析 · 案例库检索 · AI 诊断评分 · 材料自动生成</p>
+        </div>
+    </div>
+    <div class="b-panel-bottom">
+        <div class="b-bottom-content">
+            <table class="b-table reveal">
+                <thead><tr><th style="width:20%">对比维度</th><th style="width:38%">晨星创投专利</th><th style="width:42%">赛赋</th></tr></thead>
+                <tbody>
+                    <tr><td class="hcell">用户状态</td><td>已有明确竞赛方向与材料</td><td><strong>零基础、未确定方向</strong></td></tr>
+                    <tr><td class="hcell">核心价值</td><td>帮有基础的人提上限（80→95）</td><td><strong>帮新手从零起步（0→60）</strong></td></tr>
+                    <tr><td class="hcell">产品逻辑</td><td>深度加工工具</td><td><strong>入门引导工具</strong></td></tr>
+                </tbody>
+            </table>
+            <p class="b-card-desc reveal" style="margin-top:clamp(0.5rem,1vw,0.8rem);color:#333;font-weight:500;">大学生竞赛市场，卡在 0 分的人远比卡在 80 分的人多。晨星让高手更强，赛赋让新手能上场。<strong style="color:var(--b-accent);">不是竞争对手。</strong></p>
+        </div>
+    </div>
+</section>
+
+<!-- ============================================
+     SLIDE 11: 差异化定位矩阵 (Style B)
+     ============================================ -->
+<section class="slide b-slide" data-section="b">
+    <div class="b-panel-top">
+        <div class="b-top-content">
+            <p class="b-sub-light reveal" style="margin-bottom:clamp(0.3rem,0.6vw,0.5rem);">— 定位 —</p>
+            <h2 class="b-title-light reveal">差异化定位矩阵</h2>
+        </div>
+    </div>
+    <div class="b-panel-bottom">
+        <div class="b-bottom-content">
+            <table class="b-table reveal">
+                <thead><tr><th>对比维度</th><th>赛氪</th><th>保研岛</th><th>晨星专利</th><th style="color:#FF5722;">赛赋</th></tr></thead>
+                <tbody>
+                    <tr><td class="hcell">竞赛覆盖</td><td>3 万+</td><td>100+</td><td>全品类</td><td style="color:#FF5722;font-weight:700;">5 万+全品类</td></tr>
+                    <tr><td class="hcell">AI 推荐</td><td>❌ 无</td><td>二维筛选</td><td>无推荐</td><td style="color:#FF5722;font-weight:700;">四维个性化匹配</td></tr>
+                    <tr><td class="hcell">目标用户</td><td>所有学生</td><td>保研生</td><td>有材料的学生</td><td style="color:#FF5722;font-weight:700;">双非零基础学生</td></tr>
+                    <tr><td class="hcell">核心价值</td><td>信息聚合</td><td>保研加分</td><td>深度加工</td><td style="color:#FF5722;font-weight:700;">从0到1全程引导</td></tr>
+                    <tr><td class="hcell">全流程</td><td>仅信息展示</td><td>选赛+攻略</td><td>加工+生成</td><td style="color:#FF5722;font-weight:700;">选赛→备赛→方案→路演</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+<!-- ============================================
+     SLIDE 12: 对标参考：面立方 (Style B)
+     ============================================ -->
+<section class="slide b-slide" data-section="b">
+    <div class="b-panel-top">
+        <div class="b-top-content">
+            <p class="b-sub-light reveal" style="margin-bottom:clamp(0.3rem,0.6vw,0.5rem);">— 对标 —</p>
+            <h2 class="b-title-light reveal">双非拿奖标杆：「面立方」</h2>
+            <p class="b-sub-light reveal" style="margin-top:clamp(0.3rem,0.6vw,0.5rem);">武昌理工学院（双非）· 第十九届挑战杯 <strong style="color:#fff;">全国特等奖</strong>（2025）<br>AI 面试辅助平台 — 与我们同属「软件 + AI + 学生服务」赛道</p>
+        </div>
+    </div>
+    <div class="b-panel-bottom">
+        <div class="b-bottom-content">
+            <div class="b-code-block reveal">打开 AI 对话框          →  独立网站/小程序
+打字输入                →  语音/视频/简历上传
+AI 给文字反馈           →  多模态分析 + 评分雷达图
+聊完就没了              →  保存记录 + 进步曲线
+临时想问题              →  结构化题库
+凭感觉判断              →  量化评分 + 改进建议
+零壁垒                  →  1专利 + 1软著 + 4论文 + 企业合作</div>
+            <p class="b-card-desc reveal" style="margin-top:clamp(0.5rem,1vw,0.8rem);font-weight:600;color:#222;">启示：双非学校拿全国特等奖，不靠技术有多牛，靠的是：真实需求 + 合作方背书 + 做得出来。</p>
+        </div>
+    </div>
+</section>
+
+<!-- ============================================
+     SLIDE 13: 黄石政策红利 (Style B)
+     ============================================ -->
+<section class="slide b-slide" data-section="b">
+    <div class="b-panel-top">
+        <div class="b-top-content">
+            <p class="b-sub-light reveal" style="margin-bottom:clamp(0.3rem,0.6vw,0.5rem);">— 本地资源 —</p>
+            <h2 class="b-title-light reveal">黄石政策红利</h2>
+        </div>
+    </div>
+    <div class="b-panel-bottom">
+        <div class="b-bottom-content">
+            <table class="b-table reveal">
+                <thead><tr><th>政策/资源</th><th>具体内容</th><th style="width:18%">来源</th></tr></thead>
+                <tbody>
+                    <tr><td class="hcell">数字化转型试点</td><td>黄石入选第三批试点城市，290家试点企业，<strong>126家完成数字化改造</strong></td><td>工信部/财政部</td></tr>
+                    <tr><td class="hcell">AI城市建设</td><td>2025年发布行动计划，首批<strong>27个AI应用场景</strong></td><td>黄石市人民政府</td></tr>
+                    <tr><td class="hcell">大学生创业补贴</td><td><strong>5000元</strong>一次性创业补贴（毕业5年内）</td><td>黄石市人社局</td></tr>
+                    <tr><td class="hcell">省级创业扶持</td><td><strong>5-50万元</strong>省级扶持资金</td><td>黄石市人社局</td></tr>
+                    <tr><td class="hcell">创业担保贷款</td><td>小微企业最高<strong>500万元</strong></td><td>黄石市人社局</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+<!-- ============================================
+     SLIDE 14: 黄石可合作机构 (Style B)
+     ============================================ -->
+<section class="slide b-slide" data-section="b">
+    <div class="b-panel-top">
+        <div class="b-top-content">
+            <p class="b-sub-light reveal" style="margin-bottom:clamp(0.3rem,0.6vw,0.5rem);">— 本地资源 —</p>
+            <h2 class="b-title-light reveal">可合作机构</h2>
+        </div>
+    </div>
+    <div class="b-panel-bottom">
+        <div class="b-bottom-content">
+            <div class="b-grid reveal">
+                <div class="b-card"><p class="b-card-title">湖北企点创网络科技</p><p class="b-card-desc">服务 500+ 中小企业，提供企业需求对接与技术合作</p></div>
+                <div class="b-card"><p class="b-card-title">大唐融合（黄石）</p><p class="b-card-desc">国家双跨工业互联网平台，提供平台级技术资源</p></div>
+                <div class="b-card"><p class="b-card-title">黄石大学科技园</p><p class="b-card-desc">与武汉大学等 9 所高校共建，校企协同创新</p></div>
+                <div class="b-card"><p class="b-card-title">湖北理工学院 · 慧谷孵化园</p><p class="b-card-desc">校内支持、往届项目参考、入驻孵化</p></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ============================================
+     SLIDE 15: 技术壁垒 (Style B)
+     ============================================ -->
+<section class="slide b-slide" data-section="b">
+    <div class="b-panel-top">
+        <div class="b-top-content">
+            <p class="b-sub-light reveal" style="margin-bottom:clamp(0.3rem,0.6vw,0.5rem);">— 壁垒 —</p>
+            <h2 class="b-title-light reveal">技术壁垒</h2>
+            <p class="b-sub-light reveal" style="margin-top:clamp(0.3rem,0.6vw,0.5rem);font-size:clamp(0.55rem,0.8vw,0.7rem);">⚡ 完整技术方案另做 PPT 单独展示，本页仅做概述</p>
+        </div>
+    </div>
+    <div class="b-panel-bottom">
+        <div class="b-bottom-content">
+            <table class="b-table reveal">
+                <thead><tr><th style="width:22%">评委可能会问</th><th>我们的回答</th></tr></thead>
+                <tbody>
+                    <tr><td class="hcell">痛点真实吗？</td><td>有调研数据支撑，有第一手用户观察</td></tr>
+                    <tr><td class="hcell">凭什么你做？</td><td>16个竞赛场景垂直优化的提示词体系 + 竞赛知识库 + 用户数据飞轮</td></tr>
+                    <tr><td class="hcell">做得出来吗？</td><td>V1 CLI 已完成（详见技术方案 PPT）</td></tr>
+                </tbody>
+            </table>
+            <p class="b-card-desc reveal" style="margin-top:clamp(0.5rem,1vw,0.8rem);font-weight:600;color:#222;">我们的壁垒不是代码，而是：<strong style="color:var(--b-accent);">提示词体系 + 竞赛知识库 + 用户数据飞轮</strong></p>
+            <p class="b-card-desc reveal">三个合在一起，形成「用得越多越聪明」的正循环——这是通用 AI 工具做不到的。</p>
+        </div>
+    </div>
+</section>
+
+<!-- ============================================
+     SLIDE 16: 下一步行动 (Style B)
+     ============================================ -->
+<section class="slide b-slide" data-section="b">
+    <div class="b-panel-top">
+        <div class="b-top-content">
+            <p class="b-sub-light reveal" style="margin-bottom:clamp(0.3rem,0.6vw,0.5rem);">— 行动 —</p>
+            <h2 class="b-title-light reveal">下一步行动规划</h2>
+        </div>
+    </div>
+    <div class="b-panel-bottom">
+        <div class="b-bottom-content">
+            <div class="b-steps reveal">
+                <div class="b-step">
+                    <span class="b-step-num">1</span>
+                    <div class="b-step-body"><p class="b-step-title">用户调研</p><p class="b-step-desc">问卷 + 访谈，用真实数据验证需求，为商业计划书提供支撑</p></div>
+                </div>
+                <div class="b-step">
+                    <span class="b-step-num">2</span>
+                    <div class="b-step-body"><p class="b-step-title">找队友</p><p class="b-step-desc">补充商科（商业模式/财务）+ 设计（PPT/UI），补齐团队短板</p></div>
+                </div>
+                <div class="b-step">
+                    <span class="b-step-num">3</span>
+                    <div class="b-step-body"><p class="b-step-title">网页 MVP</p><p class="b-step-desc">静态展示核心流程，验证产品逻辑，给评委一个「看得见」的东西</p></div>
+                </div>
+                <div class="b-step">
+                    <span class="b-step-num">4</span>
+                    <div class="b-step-body"><p class="b-step-title">商业计划书</p><p class="b-step-desc">在调研数据 + MVP 验证的基础上撰写，数据和产品互相支撑</p></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Navigation dots (generated by JS) -->
+<nav class="nav-dots" id="navDots"></nav>
+
+<!-- ============================================
+     JAVASCRIPT: Presentation Controller + Editor
+     ============================================ -->
+<script>
+class SlidePresentation {
+    constructor() {
+        this.slides = document.querySelectorAll('.slide');
+        this.totalSlides = this.slides.length;
+        this.currentSlide = 0;
+        this.isTransitioning = false;
+
+        this.generateNavDots();
+        this.setupIntersectionObserver();
+        this.setupKeyboardNav();
+        this.setupWheelNav();
+        this.setupTouchNav();
+        this.setupProgressBar();
+        this.setupNavDotClicks();
+        this.setupInlineEditing();
+        this.showSlide(0);
+    }
+
+    /* --- Navigation Dots --- */
+    generateNavDots() {
+        const nav = document.getElementById('navDots');
+        this.slides.forEach((slide, i) => {
+            const dot = document.createElement('span');
+            dot.className = 'nav-dot';
+            const section = slide.dataset.section || '';
+            if (section === 'c') dot.classList.add('section-c');
+            if (section === 'a') dot.classList.add('section-a');
+            if (section === 'b') dot.classList.add('section-b');
+            dot.title = `Slide ${i + 1}`;
+            dot.dataset.index = i;
+            nav.appendChild(dot);
+        });
+        this.dots = nav.querySelectorAll('.nav-dot');
+    }
+
+    setupNavDotClicks() {
+        this.dots.forEach(dot => {
+            dot.addEventListener('click', () => {
+                const idx = parseInt(dot.dataset.index);
+                this.goToSlide(idx);
+            });
+        });
+    }
+
+    /* --- Intersection Observer --- */
+    setupIntersectionObserver() {
+        const options = { threshold: 0.4 };
+        this.observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    const idx = Array.from(this.slides).indexOf(entry.target);
+                    if (idx !== -1) this.updateActive(idx);
+                }
+            });
+        }, options);
+        this.slides.forEach(s => this.observer.observe(s));
+    }
+
+    /* --- Keyboard --- */
+    setupKeyboardNav() {
+        document.addEventListener('keydown', (e) => {
+            // Skip if editing text
+            if (e.target.getAttribute?.('contenteditable') === 'true') return;
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
+                e.preventDefault();
+                this.nextSlide();
+            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                this.prevSlide();
+            } else if (e.key === 'Home') {
+                e.preventDefault();
+                this.goToSlide(0);
+            } else if (e.key === 'End') {
+                e.preventDefault();
+                this.goToSlide(this.totalSlides - 1);
+            } else if (e.key === 'PageDown') {
+                e.preventDefault();
+                this.nextSlide();
+            } else if (e.key === 'PageUp') {
+                e.preventDefault();
+                this.prevSlide();
+            }
+        });
+    }
+
+    /* --- Mouse Wheel --- */
+    setupWheelNav() {
+        let wheelTimeout;
+        document.addEventListener('wheel', (e) => {
+            if (this.isTransitioning) return;
+            clearTimeout(wheelTimeout);
+            wheelTimeout = setTimeout(() => {
+                if (e.deltaY > 30) this.nextSlide();
+                else if (e.deltaY < -30) this.prevSlide();
+            }, 50);
+        }, { passive: true });
+    }
+
+    /* --- Touch --- */
+    setupTouchNav() {
+        let touchStartY = 0;
+        document.addEventListener('touchstart', (e) => {
+            touchStartY = e.touches[0].clientY;
+        }, { passive: true });
+        document.addEventListener('touchend', (e) => {
+            const diff = touchStartY - e.changedTouches[0].clientY;
+            if (Math.abs(diff) > 50) {
+                if (diff > 0) this.nextSlide();
+                else this.prevSlide();
+            }
+        });
+    }
+
+    /* --- Progress Bar --- */
+    setupProgressBar() {
+        this.progressBar = document.getElementById('progressBar');
+    }
+
+    updateProgress() {
+        const pct = ((this.currentSlide + 1) / this.totalSlides) * 100;
+        this.progressBar.style.width = pct + '%';
+    }
+
+    /* --- Slide Navigation --- */
+    goToSlide(idx) {
+        if (idx < 0 || idx >= this.totalSlides || this.isTransitioning) return;
+        this.isTransitioning = true;
+        this.slides[idx].scrollIntoView({ behavior: 'smooth' });
+        setTimeout(() => { this.isTransitioning = false; }, 600);
+    }
+
+    nextSlide() {
+        if (this.currentSlide < this.totalSlides - 1) {
+            this.goToSlide(this.currentSlide + 1);
+        }
+    }
+
+    prevSlide() {
+        if (this.currentSlide > 0) {
+            this.goToSlide(this.currentSlide - 1);
+        }
+    }
+
+    showSlide(idx) {
+        this.slides[idx].classList.add('visible');
+        this.updateActive(idx);
+    }
+
+    updateActive(idx) {
+        this.currentSlide = idx;
+        this.dots.forEach((d, i) => d.classList.toggle('active', i === idx));
+        this.updateProgress();
+    }
+
+    /* --- Inline Editing --- */
+    setupInlineEditing() {
+        this.isEditing = false;
+        this.editedContent = {};
+
+        // Load saved content
+        try {
+            const saved = localStorage.getItem('saifu-ppt-edits');
+            if (saved) {
+                this.editedContent = JSON.parse(saved);
+                this.applySavedEdits();
+            }
+        } catch(e) {}
+
+        // Edit toggle button
+        const toggleBtn = document.getElementById('editToggle');
+        const hotzone = document.getElementById('editHotzone');
+        let hideTimeout = null;
+
+        toggleBtn.addEventListener('click', () => this.toggleEditMode());
+
+        hotzone.addEventListener('mouseenter', () => {
+            clearTimeout(hideTimeout);
+            toggleBtn.classList.add('show');
+        });
+        hotzone.addEventListener('mouseleave', () => {
+            hideTimeout = setTimeout(() => {
+                if (!this.isEditing) toggleBtn.classList.remove('show');
+            }, 400);
+        });
+        toggleBtn.addEventListener('mouseenter', () => clearTimeout(hideTimeout));
+        toggleBtn.addEventListener('mouseleave', () => {
+            hideTimeout = setTimeout(() => {
+                if (!this.isEditing) toggleBtn.classList.remove('show');
+            }, 400);
+        });
+        hotzone.addEventListener('click', () => this.toggleEditMode());
+
+        // Keyboard shortcut
+        document.addEventListener('keydown', (e) => {
+            if ((e.key === 'e' || e.key === 'E') && !e.target.getAttribute?.('contenteditable')) {
+                if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+                    this.toggleEditMode();
+                }
+            }
+            // Ctrl+S to save
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                this.saveEdits();
+            }
+        });
+
+        // Auto-save on content change
+        document.addEventListener('input', (e) => {
+            if (e.target.getAttribute?.('contenteditable') === 'true') {
+                this.scheduleAutoSave();
+            }
+        });
+    }
+
+    toggleEditMode() {
+        this.isEditing = !this.isEditing;
+        const toggleBtn = document.getElementById('editToggle');
+        const textEls = document.querySelectorAll('.slide-content p, .slide-content h1, .slide-content h2, .slide-content li, .slide-content td, .slide-content th, .slide-content span.c-toc-item, .slide-content .a-quote, .slide-content .b-card-desc, .slide-content .b-card-title');
+
+        if (this.isEditing) {
+            document.body.classList.add('edit-mode');
+            toggleBtn.classList.add('active');
+            toggleBtn.textContent = '💾 退出编辑';
+            textEls.forEach(el => {
+                if (!el.hasAttribute('contenteditable')) {
+                    const id = this.getElementId(el);
+                    el.setAttribute('contenteditable', 'true');
+                    el.dataset.editId = id;
+                }
+            });
+            this.notify('编辑模式已开启 — 点击任意文字即可修改');
+        } else {
+            document.body.classList.remove('edit-mode');
+            toggleBtn.classList.remove('active');
+            toggleBtn.textContent = '✏️ 编辑';
+            textEls.forEach(el => {
+                el.removeAttribute('contenteditable');
+                el.removeAttribute('data-edit-id');
+            });
+            this.saveEdits();
+        }
+    }
+
+    getElementId(el) {
+        // Generate stable ID from content
+        const slide = el.closest('.slide');
+        const slideIdx = Array.from(this.slides).indexOf(slide);
+        const tag = el.tagName;
+        const idx = Array.from(el.parentElement.children).indexOf(el);
+        return `s${slideIdx}-${tag}-${idx}`;
+    }
+
+    scheduleAutoSave() {
+        clearTimeout(this._saveTimeout);
+        this._saveTimeout = setTimeout(() => this.saveEdits(), 2000);
+    }
+
+    saveEdits() {
+        const edits = {};
+        document.querySelectorAll('[data-edit-id]').forEach(el => {
+            edits[el.dataset.editId] = el.innerHTML;
+        });
+        this.editedContent = edits;
+        try {
+            localStorage.setItem('saifu-ppt-edits', JSON.stringify(edits));
+            if (this.isEditing) this.notify('已保存 ✓');
+        } catch(e) {
+            if (this.isEditing) this.notify('保存失败：存储空间不足');
+        }
+    }
+
+    applySavedEdits() {
+        Object.entries(this.editedContent).forEach(([id, html]) => {
+            const el = document.querySelector(`[data-edit-id="${id}"]`);
+            if (el) el.innerHTML = html;
+        });
+    }
+
+    notify(msg) {
+        let toast = document.querySelector('.edit-toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.className = 'edit-toast';
+            toast.style.cssText = 'position:fixed;bottom:clamp(1rem,3vh,2rem);left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.85);color:#fff;padding:clamp(6px,1vw,10px) clamp(14px,2vw,20px);border-radius:8px;font-family:"Space Grotesk",sans-serif;font-size:clamp(0.65rem,0.9vw,0.8rem);z-index:10002;opacity:0;transition:opacity 0.3s;pointer-events:none;backdrop-filter:blur(4px);';
+            document.body.appendChild(toast);
+        }
+        toast.textContent = msg;
+        toast.style.opacity = '1';
+        clearTimeout(this._toastTimeout);
+        this._toastTimeout = setTimeout(() => { toast.style.opacity = '0'; }, 2000);
+    }
+}
+
+/* Initialize */
+document.addEventListener('DOMContentLoaded', () => {
+    new SlidePresentation();
+});
+</script>
+</body>
+</html>

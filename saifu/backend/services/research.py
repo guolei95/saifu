@@ -330,26 +330,31 @@ def run_research(user_data: dict) -> dict:
 
     # ── 步骤 5：为所有结果填充模板字段（benefits/pitfalls/cat/recommend_index）──
     for r in merged_recs:
+        r_name = r.get("name", "")
+        form_str = str(r.get("form", ""))
+        is_team = "团队" in form_str
+        fee_str = str(r.get("fee", ""))
+        is_free = (fee_str == "免费" or fee_str == "0")
         # 类别标签
         if not r.get("cat"):
-            r["cat"] = classify_competition(r.get("name", ""))
+            r["cat"] = classify_competition(r_name)
         # 推荐指数（从 match_score 推算）
         if not r.get("recommend_index"):
-            score = r.get("match_score", 70)
-            if score >= 90:
+            score_val = r.get("match_score", 70)
+            if score_val >= 90:
                 r["recommend_index"] = 5
-            elif score >= 80:
+            elif score_val >= 80:
                 r["recommend_index"] = 4
-            elif score >= 70:
+            elif score_val >= 70:
                 r["recommend_index"] = 3
             else:
                 r["recommend_index"] = 2
-        # 为什么参加
+        # 为什么参加（只需要竞赛名称）
         if not r.get("benefits"):
-            r["benefits"] = get_benefit_text(r.get("name", ""), user_data)
-        # 注意事项
+            r["benefits"] = get_benefit_text(r_name)
+        # 注意事项（需要 form/fee 信息）
         if not r.get("pitfalls"):
-            r["pitfalls"] = get_pitfall_text(r.get("name", ""), user_data)
+            r["pitfalls"] = get_pitfall_text(r_name, is_team, is_free, fee_str)
         # 竞赛内容描述（desc）
         if not r.get("desc"):
             r["desc"] = r.get("preparation", "")

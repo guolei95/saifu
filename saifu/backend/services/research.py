@@ -314,7 +314,6 @@ def run_research(user_data: dict) -> dict:
             merged_recs.append(r)
 
     # ── 步骤 4：用知识库 JSON 补齐所有结果的缺失字段 ──
-    from services.knowledge_base import enrich_with_facts
     merged_recs = [enrich_with_facts(m) for m in merged_recs]
 
     result["recommendations"] = merged_recs

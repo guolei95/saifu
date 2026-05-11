@@ -335,3 +335,81 @@ input[type="text"]:focus, select:focus, textarea:focus {
   /* 小贴士 */
   .tips-card { padding: 16px 14px; }
 }
+
+/* ── 导出按钮区 ── */
+.export-buttons {
+  text-align: center;
+  padding: 24px 0 8px;
+  margin-top: 20px;
+  border-top: 1px solid var(--border);
+}
+.export-buttons .btn-export {
+  margin: 0 6px 8px;
+  font-size: 14px;
+  padding: 10px 20px;
+}
+.export-hint {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 8px;
+}
+
+/* ── 打印样式：隐藏无关元素，只留结果区 ── */
+@media print {
+  /* 隐藏导航栏、表单、进度条、加载区、错误区 */
+  .navbar,
+  #formArea,
+  .progress-wrap,
+  #loadingArea,
+  #errorArea,
+  .back-bar,
+  .export-buttons,
+  .export-hint,
+  .platform-note,
+  .btn-contact,
+  .contact-modal-overlay,
+  #importArea,
+  .tab-bar,
+  .match-btn-wrap {
+    display: none !important;
+  }
+
+  /* 结果区全宽 */
+  #resultArea {
+    display: block !important;
+    max-width: 100%;
+  }
+
+  .container {
+    max-width: 100%;
+    padding: 0;
+    margin: 0;
+  }
+
+  .card-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  /* 卡片在打印时不悬停 */
+  .comp-card:hover {
+    transform: none;
+    box-shadow: var(--shadow);
+  }
+
+  /* 确保文字可读 */
+  body {
+    font-size: 12px;
+    color: #000;
+    background: #fff;
+  }
+
+  .result-title {
+    font-size: 16px;
+    margin-top: 16px;
+  }
+
+  @page {
+    margin: 12mm;
+  }
+}

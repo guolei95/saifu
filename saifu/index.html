@@ -698,6 +698,13 @@ textarea { resize: vertical; min-height: 60px; }
     </div>
 
     <div class="tips-card" id="researchSummaryArea" style="display:none;"></div>
+
+    <!-- 导出按钮 -->
+    <div class="export-buttons" id="researchExportButtons">
+      <button class="btn btn-outline btn-export" onclick="printToPDF()">🖨 打印 PDF</button>
+      <button class="btn btn-primary btn-export" onclick="saveAsHTML()">💾 保存 HTML</button>
+      <p class="export-hint">💡 电脑端推荐「打印 PDF」，手机端推荐「保存 HTML」</p>
+    </div>
   </div>
 
 </div>

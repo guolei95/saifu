@@ -1112,10 +1112,21 @@ function printToPDF() {
   window.print();
 }
 
-/** 💾 保存 HTML — 抓取结果区内容，构建独立 HTML 文件并下载 */
+/** 💾 保存 HTML — 抓取当前可见的结果区内容，构建独立 HTML 文件并下载 */
 function saveAsHTML() {
-  const resultArea = document.getElementById('resultArea');
-  if (!resultArea) { showToast('没有可保存的内容'); return; }
+  // 判断当前显示的是哪个结果区
+  let resultArea = document.getElementById('resultArea');
+  let researchArea = document.getElementById('researchResultArea');
+
+  let resultContent;
+  if (researchArea && researchArea.style.display !== 'none') {
+    resultContent = researchArea.innerHTML;
+  } else if (resultArea && resultArea.style.display !== 'none') {
+    resultContent = resultArea.innerHTML;
+  } else {
+    showToast('没有可保存的内容');
+    return;
+  }
 
   const alias = getAlias();
   const fileName = alias ? `赛赋-调研报告-${alias}.html` : '赛赋-调研报告.html';
@@ -1157,7 +1168,7 @@ ${allCSS}
 </head>
 <body>
 <div class="container">
-${resultArea.innerHTML}
+${resultContent}
 </div>
 <script type="application/json" id="sai-fu-data">
 ${JSON.stringify(collectProfile(), null, 2)}

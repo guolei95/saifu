@@ -11,7 +11,7 @@ import asyncio
 import uuid
 from datetime import datetime
 
-from match.engine import match_competitions
+from match.engine import match_competitions, generate_personal_summary
 from config import DEEPSEEK_API_KEY
 from services.knowledge_base import COMPETITION_FACTS
 from services.research import run_research
@@ -161,9 +161,24 @@ async def get_match_result(task_id: str):
 
 async def _run_match(task_id: str, profile_dict: dict):
     """后台执行匹配任务。"""
+    import logging
     try:
         # 在线程池中运行同步匹配函数，避免阻塞事件循环
         result = await asyncio.to_thread(match_competitions, profile_dict)
+        # 生成个性化总结（备赛建议 + 风险提示 + 总体评估）
+        try:
+            top_matches = result.get("open", [])[:5]
+            summary_data = await asyncio.to_thread(
+                generate_personal_summary, profile_dict, top_matches
+            )
+            result["advice"] = summary_data.get("advice", {})
+            result["risks"] = summary_data.get("risks", [])
+            result["summary"] = summary_data.get("summary", "")
+        except Exception as e:
+            logging.warning(f"生成个人总结失败: {e}")
+            result["advice"] = {}
+            result["risks"] = []
+            result["summary"] = ""
         tasks[task_id]["status"] = "done"
         tasks[task_id]["result"] = result
     except Exception as e:

@@ -170,9 +170,23 @@ textarea { resize: vertical; min-height: 60px; }
     <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
   </div>
 
+  <!-- ══ 模式选择器 ══ -->
+  <div class="mode-selector" id="modeSelector">
+    <button class="mode-btn active" id="modeDiscoverBtn" onclick="switchMode('discover')">
+      <span class="mode-icon">🔍</span>
+      <span class="mode-title">不知道能参加什么</span>
+      <span class="mode-desc">系统智能推荐</span>
+    </button>
+    <button class="mode-btn" id="modeTargetBtn" onclick="switchMode('target')">
+      <span class="mode-icon">🎯</span>
+      <span class="mode-title">知道比赛名称</span>
+      <span class="mode-desc">定向了解详情</span>
+    </button>
+  </div>
+
   <!-- 表单区 -->
   <div id="formArea">
-    <div class="header">
+    <div class="header" id="formHeader">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
         <h2>🎯 用户画像</h2>
         <span class="badge badge-required">⭐ 必填</span>
@@ -184,6 +198,8 @@ textarea { resize: vertical; min-height: 60px; }
       </div>
     </div>
 
+    <!-- ══ 模式一：不知道能参加什么 → 完整9段表单 ══ -->
+    <div id="discoverForm">
     <form id="profileForm" onsubmit="return false;" style="margin-top:16px;">
 
     <!-- ===== 一、基本信息 ===== -->
@@ -641,7 +657,134 @@ textarea { resize: vertical; min-height: 60px; }
       </button>
       <p class="match-hint">AI 将搜索最新竞赛信息并与你的画像匹配，预计需要 30-60 秒</p>
     </div>
-  </div>
+  </div><!-- end discoverForm -->
+
+  <!-- ══ 模式二：知道比赛名称 → 简化表单 ══ -->
+  <div id="targetForm" style="display:none;">
+    <form id="targetProfileForm" onsubmit="return false;" style="margin-top:16px;">
+
+    <!-- ===== 一、基本信息 ===== -->
+    <div class="section open" id="sec-target-basic">
+      <div class="section-header" onclick="toggleFormSection('sec-target-basic')">
+        <span class="section-num num-required">一</span>
+        <span class="section-title">基本信息</span>
+        <span class="section-badge badge-required">⭐必填</span>
+        <span class="section-arrow">▼</span>
+      </div>
+      <div class="section-body">
+        <div class="field">
+          <label class="field-label">学校 <span class="required-star">*</span></label>
+          <input type="text" id="target-school" placeholder="如：清华大学" oninput="autoSaveTarget()">
+        </div>
+        <div class="field">
+          <label class="field-label">专业 <span class="required-star">*</span></label>
+          <input type="text" id="target-major" placeholder="如：计算机科学与技术" oninput="autoSaveTarget()">
+        </div>
+        <div class="field">
+          <label class="field-label">年级 <span class="required-star">*</span></label>
+          <div class="option-group radio-group" id="target-grade-group">
+            <label class="option-item"><input type="radio" name="target-grade" value="大一" onchange="autoSaveTarget()"><span class="option-tag">大一</span></label>
+            <label class="option-item"><input type="radio" name="target-grade" value="大二" onchange="autoSaveTarget()"><span class="option-tag">大二</span></label>
+            <label class="option-item"><input type="radio" name="target-grade" value="大三" onchange="autoSaveTarget()"><span class="option-tag">大三</span></label>
+            <label class="option-item"><input type="radio" name="target-grade" value="大四" onchange="autoSaveTarget()"><span class="option-tag">大四</span></label>
+            <label class="option-item"><input type="radio" name="target-grade" value="研一" onchange="autoSaveTarget()"><span class="option-tag">研一</span></label>
+            <label class="option-item"><input type="radio" name="target-grade" value="研二" onchange="autoSaveTarget()"><span class="option-tag">研二</span></label>
+            <label class="option-item"><input type="radio" name="target-grade" value="研三" onchange="autoSaveTarget()"><span class="option-tag">研三</span></label>
+          </div>
+        </div>
+        <div class="field" style="border-left:3px solid var(--accent);padding:12px 16px;background:var(--accent-light);border-radius:8px;">
+          <label class="field-label">🎯 你想了解的比赛名称 <span class="required-star">*</span><span class="field-hint">填写全称或关键词均可</span></label>
+          <input type="text" id="target-competition-name" placeholder="如：互联网+、挑战杯、数学建模国赛、蓝桥杯..." oninput="autoSaveTarget()" style="font-size:16px;font-weight:600;">
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 二、能力与目标 ===== -->
+    <div class="section open" id="sec-target-skills">
+      <div class="section-header" onclick="toggleFormSection('sec-target-skills')">
+        <span class="section-num num-required">二</span>
+        <span class="section-title">能力与目标</span>
+        <span class="section-badge badge-required">⭐必填</span>
+        <span class="section-arrow">▼</span>
+      </div>
+      <div class="section-body">
+        <div class="field">
+          <label class="field-label">核心技能 <span class="required-star">*</span><span class="field-hint">你最擅长的能力，写关键词即可</span></label>
+          <input type="text" id="target-core-skills" placeholder="如：Python编程、英语翻译、数据分析、市场调研、平面设计、数学建模" oninput="autoSaveTarget()">
+        </div>
+        <div class="field">
+          <label class="field-label">专业大类 <span class="field-hint">帮助精准分析</span></label>
+          <div class="option-group radio-group" id="target-major-category-group">
+            <label class="option-item"><input type="radio" name="target-major-category" value="人文社科" onchange="autoSaveTarget()"><span class="option-tag">人文社科</span></label>
+            <label class="option-item"><input type="radio" name="target-major-category" value="理科" onchange="autoSaveTarget()"><span class="option-tag">理科</span></label>
+            <label class="option-item"><input type="radio" name="target-major-category" value="工科" onchange="autoSaveTarget()"><span class="option-tag">工科</span></label>
+            <label class="option-item"><input type="radio" name="target-major-category" value="商科" onchange="autoSaveTarget()"><span class="option-tag">商科</span></label>
+            <label class="option-item"><input type="radio" name="target-major-category" value="艺术设计" onchange="autoSaveTarget()"><span class="option-tag">艺术设计</span></label>
+            <label class="option-item"><input type="radio" name="target-major-category" value="医学" onchange="autoSaveTarget()"><span class="option-tag">医学</span></label>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label">参赛目标 <span class="field-hint">可多选</span></label>
+          <div class="option-group" id="target-goals-group">
+            <label class="option-item"><input type="checkbox" name="target-goals" value="保研加分" onchange="autoSaveTarget()"><span class="option-tag">保研加分</span></label>
+            <label class="option-item"><input type="checkbox" name="target-goals" value="求职直通" onchange="autoSaveTarget()"><span class="option-tag">求职直通</span></label>
+            <label class="option-item"><input type="checkbox" name="target-goals" value="拿奖金" onchange="autoSaveTarget()"><span class="option-tag">拿奖金</span></label>
+            <label class="option-item"><input type="checkbox" name="target-goals" value="丰富简历" onchange="autoSaveTarget()"><span class="option-tag">丰富简历</span></label>
+            <label class="option-item"><input type="checkbox" name="target-goals" value="能力锻炼" onchange="autoSaveTarget()"><span class="option-tag">能力锻炼</span></label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 三、时间投入 ===== -->
+    <div class="section open" id="sec-target-time">
+      <div class="section-header" onclick="toggleFormSection('sec-target-time')">
+        <span class="section-num num-required">三</span>
+        <span class="section-title">时间投入</span>
+        <span class="section-badge badge-required">⭐必填</span>
+        <span class="section-arrow">▼</span>
+      </div>
+      <div class="section-body">
+        <div class="field">
+          <label class="field-label">每周可投入 <span class="required-star">*</span></label>
+          <div class="option-group radio-group" id="target-weekly-hours-group">
+            <label class="option-item"><input type="radio" name="target-weekly-hours" value="每周少于5小时" onchange="autoSaveTarget()"><span class="option-tag">&lt;5小时</span></label>
+            <label class="option-item"><input type="radio" name="target-weekly-hours" value="每周5-10小时" onchange="autoSaveTarget()"><span class="option-tag">5-10小时</span></label>
+            <label class="option-item"><input type="radio" name="target-weekly-hours" value="每周10-15小时" onchange="autoSaveTarget()"><span class="option-tag">10-15小时</span></label>
+            <label class="option-item"><input type="radio" name="target-weekly-hours" value="每周15-20小时" onchange="autoSaveTarget()"><span class="option-tag">15-20小时</span></label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 四、别名 ===== -->
+    <div class="section" id="sec-target-alias">
+      <div class="section-header" onclick="toggleFormSection('sec-target-alias')">
+        <span class="section-num num-optional">四</span>
+        <span class="section-title">别名/称呼</span>
+        <span class="section-badge badge-optional">△选填</span>
+        <span class="section-arrow">▼</span>
+      </div>
+      <div class="section-body">
+        <div class="field">
+          <label class="field-label">怎么称呼你 <span class="field-hint">导出文件时用于命名</span></label>
+          <input type="text" id="target-alias" placeholder="如：小明、张三、微信昵称等" oninput="autoSaveTarget()">
+        </div>
+      </div>
+    </div>
+
+    </form>
+
+    <!-- 定向调研按钮 -->
+    <div class="match-btn-wrap">
+      <button class="btn-match" id="btnTargetResearch" onclick="startTargetResearch()">
+        🔍 查看比赛详情与规划
+      </button>
+      <p class="match-hint">AI 将查找该比赛的详细信息并为你生成个性化备赛规划，预计需要 20-40 秒</p>
+    </div>
+  </div><!-- end targetForm -->
+
+</div><!-- end formArea -->
 
   <!-- ── 导入报告面板 ── -->
   <div id="importArea" style="display:none;">
@@ -921,8 +1064,9 @@ textarea { resize: vertical; min-height: 60px; }
   font-size: 13px; font-family: monospace; background: #fafbfc; transition: border 0.2s;
 }
 .api-key-field input:focus, .api-key-field select:focus { outline: none; border-color: var(--accent); }
-/* 设置密钥按钮 */
-.btn-key-settings { margin-left: auto; margin-right: 6px; }
+/* 设置密钥按钮 — 紫色导航栏上需要可见底色 */
+.btn-key-settings { margin-left: auto; margin-right: 6px; background: rgba(255,255,255,0.2); color: #fff; border: 1px solid rgba(255,255,255,0.35); }
+.btn-key-settings:hover { background: rgba(255,255,255,0.35); color: #fff; }
 /* 平台注册卡片 */
 .api-key-platforms { display: flex; gap: 8px; margin-top: 6px; margin-bottom: 8px; }
 .platform-card {
@@ -945,6 +1089,33 @@ textarea { resize: vertical; min-height: 60px; }
   .api-key-modal { padding: 20px 18px; }
   .api-key-platforms { flex-direction: row; flex-wrap: wrap; }
   .platform-card { min-width: 90px; }
+}
+
+/* ── 模式选择器 ── */
+.mode-selector {
+  display: flex; gap: 12px; margin-bottom: 20px;
+}
+.mode-btn {
+  flex: 1; padding: 16px 20px; border: 2px solid var(--border); border-radius: 12px;
+  background: #fff; cursor: pointer; text-align: center; transition: all 0.2s;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  box-shadow: var(--shadow);
+}
+.mode-btn:hover { border-color: var(--accent); box-shadow: 0 2px 12px rgba(91,106,240,0.15); }
+.mode-btn .mode-icon { font-size: 28px; }
+.mode-btn .mode-title { font-size: 15px; font-weight: 700; color: var(--text-main); }
+.mode-btn .mode-desc { font-size: 12px; color: var(--text-secondary); }
+.mode-btn.active {
+  border-color: var(--accent); background: var(--accent-light);
+  box-shadow: 0 2px 16px rgba(91,106,240,0.2);
+}
+.mode-btn.active .mode-title { color: var(--accent); }
+@media (max-width: 480px) {
+  .mode-selector { gap: 8px; }
+  .mode-btn { padding: 12px 10px; }
+  .mode-btn .mode-icon { font-size: 22px; }
+  .mode-btn .mode-title { font-size: 13px; }
+  .mode-btn .mode-desc { font-size: 11px; }
 }
 </style>
 

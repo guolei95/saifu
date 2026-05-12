@@ -6,13 +6,16 @@ from dotenv import load_dotenv
 
 load_dotenv()  # 从 .env 文件加载环境变量（本地开发用）
 
-# ── DeepSeek API 配置 ──
-DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
-if not DEEPSEEK_API_KEY:
-    raise RuntimeError("请在环境变量中设置 DEEPSEEK_API_KEY")
+# ── LLM API 配置（通用，支持 DeepSeek / 豆包 / 通义千问 等 OpenAI 兼容平台）──
+LLM_API_KEY = os.environ.get("LLM_API_KEY") or os.environ.get("DEEPSEEK_API_KEY")
+if not LLM_API_KEY:
+    raise RuntimeError(
+        "请在环境变量中设置 LLM_API_KEY 或 DEEPSEEK_API_KEY。\n"
+        "支持平台：DeepSeek (api.deepseek.com)、豆包 (ark.cn-beijing.volces.com) 等"
+    )
 
-DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1"  # 必须带 /v1
-DEEPSEEK_MODEL = "deepseek-chat"
+LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "https://api.deepseek.com/v1")
+LLM_MODEL = os.environ.get("LLM_MODEL", "deepseek-chat")
 
 # LLM 参数
 LLM_TEMPERATURE = 0.3

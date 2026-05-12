@@ -179,11 +179,12 @@ def _val(m, *keys):
     return None
 
 
-def match_competitions(profile: dict) -> dict:
+def match_competitions(profile: dict, api_key: str | None = None) -> dict:
     """竞赛匹配主流程。
 
     Args:
         profile: 用户画像 dict（25 字段，不全的字段自动用默认值）
+        api_key: 可选，用户自己的 API Key，不传则用服务器 Key
 
     Returns:
         dict: 匹配结果，包含 open/closed/resources/tips/myths
@@ -256,7 +257,8 @@ def match_competitions(profile: dict) -> dict:
 - 去重：同一竞赛不重复"""
 
     open_list = call_deepseek_json(
-        messages=[{"role": "user", "content": open_prompt}]
+        messages=[{"role": "user", "content": open_prompt}],
+        api_key=api_key,
     )
 
     # 匹配已截止的竞赛
@@ -276,7 +278,8 @@ def match_competitions(profile: dict) -> dict:
 - 没有值得关注的就不输出"""
 
     closed_list = call_deepseek_json(
-        messages=[{"role": "user", "content": closed_prompt}]
+        messages=[{"role": "user", "content": closed_prompt}],
+        api_key=api_key,
     )
 
     # ── 步骤 4: 常识库修正 ──
@@ -432,12 +435,13 @@ def match_competitions(profile: dict) -> dict:
     }
 
 
-def generate_personal_summary(profile: dict, top_matches: list) -> dict:
+def generate_personal_summary(profile: dict, top_matches: list, api_key: str | None = None) -> dict:
     """基于用户画像和匹配结果，生成个性化总结（备赛建议、风险提示、总体评估）。
 
     Args:
         profile: 用户画像 dict
         top_matches: 前 N 个匹配竞赛列表
+        api_key: 可选，用户自己的 API Key
 
     Returns:
         {"advice": {...}, "risks": [...], "summary": "..."}
@@ -483,7 +487,8 @@ def generate_personal_summary(profile: dict, top_matches: list) -> dict:
 
     try:
         result = call_deepseek_json(
-            messages=[{"role": "user", "content": prompt}]
+            messages=[{"role": "user", "content": prompt}],
+            api_key=api_key,
         )
         return result
     except Exception:

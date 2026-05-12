@@ -12,7 +12,7 @@ import uuid
 from datetime import datetime
 
 from match.engine import match_competitions, generate_personal_summary
-from config import DEEPSEEK_API_KEY
+from config import LLM_API_KEY
 from services.knowledge_base import COMPETITION_FACTS
 from services.research import run_research
 
@@ -65,6 +65,8 @@ class ProfileInput(BaseModel):
     min_award: Optional[str] = ""
     ideal_goal: Optional[str] = ""
     strategy: Optional[str] = ""
+    # 可选：用户自己的 API Key（存在浏览器 localStorage，不落盘）
+    user_api_key: Optional[str] = ""
 
 
 class ImportResearchInput(BaseModel):
@@ -77,7 +79,7 @@ async def health():
     """健康检查端点。"""
     return {
         "status": "ok",
-        "deepseek_configured": bool(DEEPSEEK_API_KEY),
+        "llm_configured": bool(LLM_API_KEY),
     }
 
 
@@ -162,14 +164,16 @@ async def get_match_result(task_id: str):
 async def _run_match(task_id: str, profile_dict: dict):
     """后台执行匹配任务。"""
     import logging
+    # 提取用户 API Key（如有），然后从 profile_dict 中移除（不落盘、不传给 KB）
+    user_api_key = profile_dict.pop("user_api_key", None) or None
     try:
         # 在线程池中运行同步匹配函数，避免阻塞事件循环
-        result = await asyncio.to_thread(match_competitions, profile_dict)
+        result = await asyncio.to_thread(match_competitions, profile_dict, api_key=user_api_key)
         # 生成个性化总结（备赛建议 + 风险提示 + 总体评估）
         try:
             top_matches = result.get("open", [])[:5]
             summary_data = await asyncio.to_thread(
-                generate_personal_summary, profile_dict, top_matches
+                generate_personal_summary, profile_dict, top_matches, api_key=user_api_key
             )
             result["advice"] = summary_data.get("advice", {})
             result["risks"] = summary_data.get("risks", [])
@@ -241,8 +245,11 @@ async def _run_import_research(task_id: str, user_data: dict):
     import os
     from datetime import date
 
+    # 提取用户 API Key（如有），用后即弃，不落盘
+    user_api_key = user_data.pop("user_api_key", None) or None
+
     try:
-        # 1. 保存用户数据到本地 JSON
+        # 1. 保存用户数据到本地 JSON（不含 api_key）
         name = user_data.get("name", "未知用户")
         safe_name = name.replace("/", "_").replace("\\", "_").replace(" ", "_")
         today_str = date.today().isoformat()
@@ -255,7 +262,7 @@ async def _run_import_research(task_id: str, user_data: dict):
             json.dump(user_data, f, ensure_ascii=False, indent=2)
 
         # 2. 调用 AI 调研（在线程池中运行同步函数）
-        research_result = await asyncio.to_thread(run_research, user_data)
+        research_result = await asyncio.to_thread(run_research, user_data, api_key=user_api_key)
 
         # 3. 保存调研结果到本地 JSON
         research_filename = f"{safe_name}_{today_str}_research.json"

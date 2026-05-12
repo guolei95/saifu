@@ -15,6 +15,7 @@ from match.engine import match_competitions, generate_personal_summary
 from config import LLM_API_KEY
 from services.knowledge_base import COMPETITION_FACTS
 from services.research import run_research
+from services.ai_client import ServerAPIExhausted
 
 app = FastAPI(title="赛赋 SaiFu - 智能竞赛匹配平台", version="1.0.0")
 
@@ -67,6 +68,9 @@ class ProfileInput(BaseModel):
     strategy: Optional[str] = ""
     # 可选：用户自己的 API Key（存在浏览器 localStorage，不落盘）
     user_api_key: Optional[str] = ""
+    # 可选：用户指定的 API Base URL 和模型（支持 OpenAI / 豆包 等）
+    user_api_base_url: Optional[str] = ""
+    user_api_model: Optional[str] = ""
 
 
 class ImportResearchInput(BaseModel):
@@ -164,16 +168,28 @@ async def get_match_result(task_id: str):
 async def _run_match(task_id: str, profile_dict: dict):
     """后台执行匹配任务。"""
     import logging
-    # 提取用户 API Key（如有），然后从 profile_dict 中移除（不落盘、不传给 KB）
+    # 提取用户 LLM 配置（如有），用后即弃不落盘
     user_api_key = profile_dict.pop("user_api_key", None) or None
+    user_api_base = profile_dict.pop("user_api_base_url", None) or None
+    user_api_model = profile_dict.pop("user_api_model", None) or None
+
+    # 构建用户 LLM 配置（有 key 才构建，否则传 None 走服务器 Key）
+    user_llm = None
+    if user_api_key:
+        user_llm = {"api_key": user_api_key}
+        if user_api_base:
+            user_llm["base_url"] = user_api_base
+        if user_api_model:
+            user_llm["model"] = user_api_model
+
     try:
         # 在线程池中运行同步匹配函数，避免阻塞事件循环
-        result = await asyncio.to_thread(match_competitions, profile_dict, api_key=user_api_key)
+        result = await asyncio.to_thread(match_competitions, profile_dict, api_key=user_llm)
         # 生成个性化总结（备赛建议 + 风险提示 + 总体评估）
         try:
             top_matches = result.get("open", [])[:5]
             summary_data = await asyncio.to_thread(
-                generate_personal_summary, profile_dict, top_matches, api_key=user_api_key
+                generate_personal_summary, profile_dict, top_matches, api_key=user_llm
             )
             result["advice"] = summary_data.get("advice", {})
             result["risks"] = summary_data.get("risks", [])
@@ -185,6 +201,9 @@ async def _run_match(task_id: str, profile_dict: dict):
             result["summary"] = ""
         tasks[task_id]["status"] = "done"
         tasks[task_id]["result"] = result
+    except ServerAPIExhausted as e:
+        tasks[task_id]["status"] = "error"
+        tasks[task_id]["error"] = str(e)
     except Exception as e:
         tasks[task_id]["status"] = "error"
         tasks[task_id]["error"] = str(e) or "匹配服务暂时不可用"
@@ -245,8 +264,18 @@ async def _run_import_research(task_id: str, user_data: dict):
     import os
     from datetime import date
 
-    # 提取用户 API Key（如有），用后即弃，不落盘
+    # 提取用户 LLM 配置（如有），用后即弃，不落盘
     user_api_key = user_data.pop("user_api_key", None) or None
+    user_api_base = user_data.pop("user_api_base_url", None) or None
+    user_api_model = user_data.pop("user_api_model", None) or None
+
+    user_llm = None
+    if user_api_key:
+        user_llm = {"api_key": user_api_key}
+        if user_api_base:
+            user_llm["base_url"] = user_api_base
+        if user_api_model:
+            user_llm["model"] = user_api_model
 
     try:
         # 1. 保存用户数据到本地 JSON（不含 api_key）
@@ -262,7 +291,7 @@ async def _run_import_research(task_id: str, user_data: dict):
             json.dump(user_data, f, ensure_ascii=False, indent=2)
 
         # 2. 调用 AI 调研（在线程池中运行同步函数）
-        research_result = await asyncio.to_thread(run_research, user_data, api_key=user_api_key)
+        research_result = await asyncio.to_thread(run_research, user_data, api_key=user_llm)
 
         # 3. 保存调研结果到本地 JSON
         research_filename = f"{safe_name}_{today_str}_research.json"
@@ -283,6 +312,9 @@ async def _run_import_research(task_id: str, user_data: dict):
             "risks": research_result.get("risks", []),
             "summary": research_result.get("summary", ""),
         }
+    except ServerAPIExhausted as e:
+        tasks[task_id]["status"] = "error"
+        tasks[task_id]["error"] = str(e)
     except Exception as e:
         tasks[task_id]["status"] = "error"
         tasks[task_id]["error"] = str(e) or "调研服务暂时不可用"

@@ -151,7 +151,8 @@ textarea { resize: vertical; min-height: 60px; }
   <div class="nav-inner">
     <a href="#" class="nav-brand">🏆 赛赋 SaiFu</a>
     <span class="nav-tag">智能竞赛匹配 · 覆盖全学科</span>
-    <button class="btn btn-primary btn-contact" onclick="showContactModal()" style="margin-left:auto;">📩 联系我</button>
+    <button class="btn btn-ghost btn-sm btn-key-settings" onclick="openApiKeySettings()" title="设置自己的 API 密钥">🔑 设置密钥</button>
+    <button class="btn btn-primary btn-contact" onclick="showContactModal()">📩 联系我</button>
   </div>
 </nav>
 
@@ -766,61 +767,68 @@ textarea { resize: vertical; min-height: 60px; }
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
-<!-- ── API Key 弹窗（免费次数用完后弹出）── -->
+<!-- ── API Key 弹窗 ── -->
 <div class="api-key-modal-overlay" id="apiKeyModal" onclick="hideApiKeyModal(true)">
   <div class="api-key-modal" onclick="event.stopPropagation()">
     <button class="api-key-modal-close" onclick="hideApiKeyModal(true)">&times;</button>
-    <h3>🔐 免费次数已用完</h3>
-    <p style="color:#666;font-size:13px;margin-bottom:16px;">
-      你已使用 <strong id="apiKeyUsageCount">3</strong>/3 次免费匹配。继续使用需要你自己的 API Key。
-    </p>
+    <h3 id="apiKeyModalTitle">🔐 免费次数已用完</h3>
+    <p id="apiKeyModalSubtitle" style="color:#666;font-size:13px;margin-bottom:14px;"></p>
 
-    <!-- 模型选择建议 -->
-    <div class="api-key-tiers">
-      <div class="tier-title">💡 模型越强，调研越精准 —— 但都很便宜</div>
-      <div class="tier-row tier-pro">
-        <span class="tier-name">🏆 旗舰</span>
-        <span>DeepSeek v4-pro / 豆包 Pro</span>
-        <span class="tier-price">~5 分/次</span>
-        <span>重要比赛首选</span>
-      </div>
-      <div class="tier-row tier-mid">
-        <span class="tier-name">⚡ 均衡</span>
-        <span>DeepSeek v4-flash</span>
-        <span class="tier-price">~1.6 分/次</span>
-        <span>日常调研</span>
-      </div>
-      <div class="tier-row tier-lite">
-        <span class="tier-name">💰 省钱</span>
-        <span>豆包 Seed 2.0 Lite</span>
-        <span class="tier-price">~1.5 分/次</span>
-        <span>大量匹配</span>
-      </div>
+    <!-- 平台选择 -->
+    <div class="api-key-field">
+      <label class="api-key-label">选择平台</label>
+      <select id="apiKeyProvider" onchange="onProviderChange()" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;">
+        <option value="deepseek">🐳 DeepSeek</option>
+        <option value="doubao">🌋 火山引擎（豆包）</option>
+        <option value="openai">🤖 OpenAI</option>
+        <option value="custom">⚙️ 自定义</option>
+      </select>
     </div>
 
-    <!-- 两个平台注册入口 -->
+    <!-- Key 输入 -->
+    <div class="api-key-field">
+      <label class="api-key-label">API Key</label>
+      <input type="password" id="apiKeyInput" placeholder="粘贴你的 Key（如 sk-xxx / ark-xxx）" autocomplete="off">
+    </div>
+
+    <!-- Base URL + Model（平台选择自动填充，自定义可手改） -->
+    <div class="api-key-field">
+      <label class="api-key-label">Base URL</label>
+      <input type="text" id="apiKeyBaseUrl" placeholder="https://api.xxx.com/v1">
+    </div>
+    <div class="api-key-field">
+      <label class="api-key-label">模型名</label>
+      <input type="text" id="apiKeyModel" placeholder="如 deepseek-chat">
+    </div>
+
+    <!-- 按钮行 -->
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button class="btn btn-primary" onclick="submitApiKey()" style="flex:1;justify-content:center;">
+        ✅ 确认使用
+      </button>
+      <button class="btn btn-ghost btn-sm" onclick="clearApiKey()" title="清除已保存的密钥">
+        🗑
+      </button>
+    </div>
+
+    <!-- 注册入口 -->
     <div class="api-key-platforms">
       <a href="https://console.volcengine.com" target="_blank" class="platform-card">
         <span class="platform-icon">🌋</span>
-        <span class="platform-name">火山引擎（豆包）</span>
-        <span class="platform-bonus">新用户送 50 万 tokens</span>
-        <span class="platform-arrow">去注册 →</span>
+        <span class="platform-name">火山引擎</span>
+        <span class="platform-bonus">送 50 万 tokens</span>
       </a>
       <a href="https://platform.deepseek.com" target="_blank" class="platform-card">
         <span class="platform-icon">🐳</span>
         <span class="platform-name">DeepSeek</span>
-        <span class="platform-bonus">新用户送 1000 万 tokens</span>
-        <span class="platform-arrow">去注册 →</span>
+        <span class="platform-bonus">送 1000 万 tokens</span>
+      </a>
+      <a href="https://platform.openai.com" target="_blank" class="platform-card">
+        <span class="platform-icon">🤖</span>
+        <span class="platform-name">OpenAI</span>
+        <span class="platform-bonus">需绑卡充值</span>
       </a>
     </div>
-
-    <!-- Key 输入 -->
-    <div class="api-key-input-row">
-      <input type="password" id="apiKeyInput" placeholder="粘贴你的 API Key（如 sk-xxx 或 ark-xxx）" autocomplete="off">
-    </div>
-    <button class="btn btn-primary" onclick="submitApiKey()" style="width:100%;justify-content:center;">
-      ✅ 确认使用
-    </button>
 
     <!-- 信任保障 -->
     <div class="api-key-trust">
@@ -905,49 +913,38 @@ textarea { resize: vertical; min-height: 60px; }
   position: absolute; top: 10px; right: 14px; border: none; background: none;
   font-size: 24px; cursor: pointer; color: #999; line-height: 1;
 }
-/* 模型档位参考 */
-.api-key-tiers {
-  background: #f8f9fa; border-radius: 8px; padding: 10px 14px; margin-bottom: 16px;
-  font-size: 12px;
+/* 表单字段 */
+.api-key-field { margin-bottom: 10px; }
+.api-key-label { display: block; font-size: 12px; font-weight: 600; color: #666; margin-bottom: 4px; }
+.api-key-field input, .api-key-field select {
+  width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px;
+  font-size: 13px; font-family: monospace; background: #fafbfc; transition: border 0.2s;
 }
-.tier-title { font-weight: 600; margin-bottom: 8px; color: #2c3e50; font-size: 13px; }
-.tier-row {
-  display: grid; grid-template-columns: 50px 1fr 60px 80px; gap: 6px;
-  padding: 5px 0; border-bottom: 1px solid #eee; align-items: center;
-}
-.tier-row:last-child { border-bottom: none; }
-.tier-name { font-weight: 600; }
-.tier-price { color: var(--accent); font-weight: 600; text-align: center; }
+.api-key-field input:focus, .api-key-field select:focus { outline: none; border-color: var(--accent); }
+/* 设置密钥按钮 */
+.btn-key-settings { margin-left: auto; margin-right: 6px; }
 /* 平台注册卡片 */
-.api-key-platforms { display: flex; gap: 10px; margin-bottom: 16px; }
+.api-key-platforms { display: flex; gap: 8px; margin-top: 6px; margin-bottom: 8px; }
 .platform-card {
-  flex: 1; border: 1px solid var(--border); border-radius: 8px; padding: 12px;
-  text-decoration: none; color: var(--text-main); transition: border 0.2s, box-shadow 0.2s;
-  display: flex; flex-direction: column; gap: 4px;
+  flex: 1; border: 1px solid var(--border); border-radius: 8px; padding: 8px;
+  text-decoration: none; color: var(--text-main); transition: border 0.2s;
+  display: flex; flex-direction: column; gap: 2px; align-items: center; text-align: center;
 }
 .platform-card:hover { border-color: var(--accent); box-shadow: 0 2px 8px rgba(91,106,240,0.12); }
-.platform-icon { font-size: 20px; }
-.platform-name { font-weight: 600; font-size: 13px; }
-.platform-bonus { font-size: 11px; color: var(--optional); }
-.platform-arrow { font-size: 11px; color: var(--accent); margin-top: 4px; }
-/* Key 输入 */
-.api-key-input-row { margin-bottom: 12px; }
-.api-key-input-row input {
-  width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px;
-  font-size: 14px; font-family: monospace; background: #fafbfc; transition: border 0.2s;
-}
-.api-key-input-row input:focus { outline: none; border-color: var(--accent); }
+.platform-icon { font-size: 18px; }
+.platform-name { font-weight: 600; font-size: 12px; }
+.platform-bonus { font-size: 10px; color: var(--optional); }
 /* 信任保障 */
 .api-key-trust {
-  margin-top: 16px; padding-top: 12px; border-top: 1px solid #eee;
-  font-size: 12px; color: #888; display: flex; flex-direction: column; gap: 6px;
+  margin-top: 8px; padding-top: 10px; border-top: 1px solid #eee;
+  font-size: 11px; color: #888; display: flex; flex-direction: column; gap: 4px;
 }
 .trust-item strong { color: #555; }
 
 @media (max-width: 480px) {
   .api-key-modal { padding: 20px 18px; }
-  .api-key-platforms { flex-direction: column; }
-  .tier-row { grid-template-columns: 40px 1fr 50px 60px; font-size: 11px; }
+  .api-key-platforms { flex-direction: row; flex-wrap: wrap; }
+  .platform-card { min-width: 90px; }
 }
 </style>
 

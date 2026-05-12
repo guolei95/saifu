@@ -13,29 +13,31 @@ const API_BASE_URL = window.location.hostname === 'localhost'
 const MATCH_TIMEOUT = 300000; // 300 秒超时（搜索+多轮AI调用需要时间）
 
 // ═══════════════════════════════════════
-// 免费试用次数限制 — 独立模块（想删掉整个功能删这里到下一个分隔线）
+// 免费试用次数限制 + 多平台密钥 — 独立模块
 // ═══════════════════════════════════════
-const FREE_LIMIT = 3;                       // 免费试用次数
-const STORAGE_KEY_USAGE = 'saifu_usage_count';   // 使用次数
-const STORAGE_KEY_USER_KEY = 'saifu_user_api_key'; // 用户自己的 API Key
-const STORAGE_KEY_ADMIN = 'saifu_is_admin';       // 开发者绕过标记
+const FREE_LIMIT = 3;
+const STORAGE_KEY_USAGE = 'saifu_usage_count';
+const STORAGE_KEY_LLM_CONFIG = 'saifu_llm_config'; // 用户完整 LLM 配置（JSON）
+const STORAGE_KEY_ADMIN = 'saifu_is_admin';
 
-// ── 管理员后门链接 ──
-// 激活：?admin=你的密码   退出：?admin=off
-// 代码里只存 SHA256 哈希，密码本身不出现
+// ── 平台预设 ──
+const LLM_PROVIDERS = {
+  deepseek: { name: 'DeepSeek', base_url: 'https://api.deepseek.com/v1', model: 'deepseek-chat' },
+  doubao:   { name: '火山引擎（豆包）', base_url: 'https://ark.cn-beijing.volces.com/api/v3', model: 'doubao-seed-2-0-lite-260428' },
+  openai:   { name: 'OpenAI', base_url: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
+  custom:   { name: '自定义', base_url: '', model: '' },
+};
+
+// ── 管理员后门 ──
 (async function initAdminBypass() {
   const params = new URLSearchParams(window.location.search);
   const input = params.get('admin');
   if (!input) return;
-
-  // 退出管理员模式
   if (input === 'off') {
     localStorage.removeItem(STORAGE_KEY_ADMIN);
     window.location.replace(window.location.pathname);
     return;
   }
-
-  // 验证密码哈希
   const buf = new TextEncoder().encode(input);
   const raw = await crypto.subtle.digest('SHA-256', buf);
   const hex = Array.from(new Uint8Array(raw)).map(b => b.toString(16).padStart(2, '0')).join('');
@@ -48,96 +50,165 @@ const STORAGE_KEY_ADMIN = 'saifu_is_admin';       // 开发者绕过标记
 function isAdmin() {
   try { return localStorage.getItem(STORAGE_KEY_ADMIN) === '1'; } catch (e) { return false; }
 }
-
 function getUsageCount() {
   try { return parseInt(localStorage.getItem(STORAGE_KEY_USAGE) || '0', 10); } catch (e) { return 0; }
 }
-
 function incrementUsage() {
-  if (isAdmin()) return;           // 开发者不计数
-  if (getUserApiKeyForRequest()) return; // 用自己的 Key 不消耗免费次数
+  if (isAdmin()) return;
+  if (getUserLLMConfig()) return; // 用自己的 Key 不消耗免费次数
   try {
-    const count = getUsageCount();
-    localStorage.setItem(STORAGE_KEY_USAGE, String(count + 1));
+    localStorage.setItem(STORAGE_KEY_USAGE, String(getUsageCount() + 1));
   } catch (e) { /* ignore */ }
 }
 
-function getUserApiKey() {
-  try { return (localStorage.getItem(STORAGE_KEY_USER_KEY) || '').trim(); } catch (e) { return ''; }
+// ── LLM 配置存取 ──
+function getUserLLMConfig() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_LLM_CONFIG);
+    if (!raw) return null;
+    const cfg = JSON.parse(raw);
+    if (!cfg.api_key) return null;
+    return cfg;
+  } catch (e) { return null; }
 }
-
-function setUserApiKey(key) {
-  try { localStorage.setItem(STORAGE_KEY_USER_KEY, key.trim()); } catch (e) { /* ignore */ }
+function saveUserLLMConfig(cfg) {
+  try { localStorage.setItem(STORAGE_KEY_LLM_CONFIG, JSON.stringify(cfg)); } catch (e) {}
+}
+function clearUserLLMConfig() {
+  try { localStorage.removeItem(STORAGE_KEY_LLM_CONFIG); } catch (e) {}
 }
 
 /**
- * 检查使用次数，返回 true 表示可以继续，false 表示被阻止。
- * 如果次数超限且没有存储的 Key，弹出 API Key 输入框。
- * 返回 Promise，因为在弹窗中等待用户操作。
+ * 获取请求中应附带的对象（null = 用服务器 Key）
+ * @returns {object|null} { user_api_key, user_api_base_url, user_api_model } 或 null
  */
+function getUserLLMForRequest() {
+  if (isAdmin()) return null;
+  const count = getUsageCount();
+  if (count < FREE_LIMIT) return null;
+  const cfg = getUserLLMConfig();
+  if (!cfg) return null;
+  return {
+    user_api_key: cfg.api_key,
+    user_api_base_url: cfg.base_url || '',
+    user_api_model: cfg.model || '',
+  };
+}
+
+/** 将用户 LLM 配置合并到 profile/userData 中 */
+function attachLLMConfig(data) {
+  const cfg = getUserLLMForRequest();
+  if (cfg) Object.assign(data, cfg);
+}
+
+// ── 次数检查 ──
 function checkUsageAndPrompt() {
   return new Promise((resolve) => {
-    // 开发者无限使用
     if (isAdmin()) { resolve(true); return; }
-
     const count = getUsageCount();
-    const storedKey = getUserApiKey();
-
-    // 免费次数内，或有用户自己的 Key → 直接放行
-    if (count < FREE_LIMIT || storedKey) {
-      resolve(true);
-      return;
-    }
-
-    // 免费次数用完且没有 Key → 弹窗
-    showApiKeyModal(resolve);
+    const cfg = getUserLLMConfig();
+    if (count < FREE_LIMIT || cfg) { resolve(true); return; }
+    // 超限且无配置 → 弹窗
+    showApiKeyModal(resolve, false);
   });
 }
 
-/** 获取当前请求应带的 API Key（用户自己的 > 无） */
-function getUserApiKeyForRequest() {
-  if (isAdmin()) return ''; // 开发者走服务器 Key
-  const count = getUsageCount();
-  if (count < FREE_LIMIT) return ''; // 免费次数内走服务器 Key
-  return getUserApiKey(); // 用自己的 Key
-}
+// ── API Key 弹窗（支持 bankrupt 模式）──
+let _apiKeyModalResolve = null;
+let _apiKeyModalBankrupt = false;
 
-// ── API Key 弹窗 ──
-function showApiKeyModal(resolveCallback) {
+function showApiKeyModal(resolveCallback, isBankrupt) {
   const modal = document.getElementById('apiKeyModal');
-  if (!modal) { resolveCallback(false); return; }
+  if (!modal) { if (resolveCallback) resolveCallback(false); return; }
 
-  // 动态更新次数显示
-  const countEl = document.getElementById('apiKeyUsageCount');
-  if (countEl) countEl.textContent = getUsageCount();
+  _apiKeyModalResolve = resolveCallback || null;
+  _apiKeyModalBankrupt = !!isBankrupt;
 
-  // 重置输入框
-  const input = document.getElementById('apiKeyInput');
-  if (input) input.value = '';
+  // 更新标题
+  const titleEl = document.getElementById('apiKeyModalTitle');
+  if (titleEl) {
+    titleEl.textContent = isBankrupt ? '😭 小雷已破产' : '🔐 免费次数已用完';
+  }
+  // 更新副标题
+  const subtitleEl = document.getElementById('apiKeyModalSubtitle');
+  if (subtitleEl) {
+    subtitleEl.innerHTML = isBankrupt
+      ? '服务器 API 余额耗尽，请使用<strong>你自己的密钥</strong>继续使用。'
+      : `你已使用 <strong id="apiKeyUsageCount">${getUsageCount()}</strong>/${FREE_LIMIT} 次免费匹配。继续使用需要你自己的 API Key。`;
+  }
 
-  modal._resolveApiKey = resolveCallback;
+  // 恢复已保存的配置
+  const savedCfg = getUserLLMConfig();
+  const providerSel = document.getElementById('apiKeyProvider');
+  const keyInput = document.getElementById('apiKeyInput');
+  const baseInput = document.getElementById('apiKeyBaseUrl');
+  const modelInput = document.getElementById('apiKeyModel');
+
+  if (savedCfg) {
+    if (providerSel) providerSel.value = savedCfg.provider || 'custom';
+    if (keyInput) keyInput.value = savedCfg.api_key || '';
+    if (baseInput) baseInput.value = savedCfg.base_url || '';
+    if (modelInput) modelInput.value = savedCfg.model || '';
+  } else {
+    if (providerSel) providerSel.value = 'deepseek';
+    if (keyInput) keyInput.value = '';
+    if (baseInput) baseInput.value = LLM_PROVIDERS.deepseek.base_url;
+    if (modelInput) modelInput.value = LLM_PROVIDERS.deepseek.model;
+  }
+
   modal.classList.add('show');
 }
+// 暴露到全局：导航栏按钮调用
+window.openApiKeySettings = function() { showApiKeyModal(null, false); };
 
 function hideApiKeyModal(cancelled) {
   const modal = document.getElementById('apiKeyModal');
   if (!modal) return;
   modal.classList.remove('show');
-  if (modal._resolveApiKey) {
-    modal._resolveApiKey(!cancelled);
-    delete modal._resolveApiKey;
+  if (_apiKeyModalResolve) {
+    _apiKeyModalResolve(!cancelled);
+    _apiKeyModalResolve = null;
   }
+  _apiKeyModalBankrupt = false;
+}
+
+/** 平台切换时自动填充 base_url 和 model */
+function onProviderChange() {
+  const sel = document.getElementById('apiKeyProvider');
+  const baseInput = document.getElementById('apiKeyBaseUrl');
+  const modelInput = document.getElementById('apiKeyModel');
+  if (!sel || !baseInput || !modelInput) return;
+  const provider = LLM_PROVIDERS[sel.value];
+  if (!provider) return;
+  if (sel.value !== 'custom') {
+    baseInput.value = provider.base_url;
+    modelInput.value = provider.model;
+  }
+  // 自定义模式不清空，保留用户上次输入
 }
 
 function submitApiKey() {
-  const input = document.getElementById('apiKeyInput');
-  const key = (input?.value || '').trim();
-  if (!key) {
-    alert('请输入有效的 API Key');
-    return;
-  }
-  setUserApiKey(key);
+  const key = (document.getElementById('apiKeyInput')?.value || '').trim();
+  if (!key) { alert('请输入有效的 API Key'); return; }
+
+  const provider = document.getElementById('apiKeyProvider')?.value || 'custom';
+  const base_url = (document.getElementById('apiKeyBaseUrl')?.value || '').trim();
+  const model = (document.getElementById('apiKeyModel')?.value || '').trim();
+
+  // 非自定义模式用预设值兜底
+  const preset = LLM_PROVIDERS[provider];
+  const finalBaseUrl = base_url || (preset ? preset.base_url : '');
+  const finalModel = model || (preset ? preset.model : '');
+
+  saveUserLLMConfig({ provider, api_key: key, base_url: finalBaseUrl, model: finalModel });
   hideApiKeyModal(false);
+}
+
+/** 清除已保存的密钥 */
+function clearApiKey() {
+  if (!confirm('确定要清除已保存的 API 密钥吗？')) return;
+  clearUserLLMConfig();
+  alert('已清除，下次将使用免费次数。');
 }
 // ═══════════════════════════════════════
 // 免费试用次数限制 — 模块结束
@@ -648,11 +719,8 @@ async function startMatch() {
     return;
   }
 
-  // 附带用户 API Key（如有）
-  const userKey = getUserApiKeyForRequest();
-  if (userKey) {
-    profile.user_api_key = userKey;
-  }
+  // 附带用户 LLM 配置（如有）
+  attachLLMConfig(profile);
 
   // 显示加载
   document.getElementById('formArea').style.display = 'none';
@@ -732,12 +800,16 @@ async function startMatch() {
     throw new Error('匹配超时（超过 ' + MATCH_TIMEOUT/1000 + ' 秒）。请稍后重试。');
 
   } catch (error) {
+    const msg = error.message || '';
     if (error.name === 'AbortError') {
       showError('匹配超时（超过 ' + MATCH_TIMEOUT/1000 + ' 秒）。请检查网络后重试。');
-    } else if (error.message && (error.message.includes('Failed to fetch') || error.message.includes('NetworkError'))) {
+    } else if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
       showError('无法连接到服务器。请检查后端是否已部署并运行。');
+    } else if (msg.includes('[BANKRUPT]')) {
+      // 服务器破产 → 弹窗让用户输自己的 Key
+      showApiKeyModal(null, true);
     } else {
-      showError(error.message || '未知错误');
+      showError(msg || '未知错误');
     }
   } finally {
     document.getElementById('loadingArea').style.display = 'none';
@@ -1200,11 +1272,8 @@ async function startResearch() {
     return;
   }
 
-  // 附带用户 API Key（如有）
-  const userKey = getUserApiKeyForRequest();
-  if (userKey) {
-    userData.user_api_key = userKey;
-  }
+  // 附带用户 LLM 配置（如有）
+  attachLLMConfig(userData);
 
   // 显示加载状态
   document.getElementById('importArea').style.display = 'none';
@@ -1293,10 +1362,13 @@ async function startResearch() {
     throw new Error('调研超时（超过 300 秒）。请稍后重试。');
 
   } catch (error) {
-    if (error.message && (error.message.includes('Failed to fetch') || error.message.includes('NetworkError'))) {
+    const msg = error.message || '';
+    if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
       showError('无法连接到服务器。请检查后端是否已部署并运行。');
+    } else if (msg.includes('[BANKRUPT]')) {
+      showApiKeyModal(null, true);
     } else {
-      showError(error.message || '未知错误');
+      showError(msg || '未知错误');
     }
   } finally {
     document.getElementById('loadingArea').style.display = 'none';

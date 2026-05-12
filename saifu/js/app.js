@@ -973,15 +973,20 @@ function buildCard(comp, index) {
                  pt.includes('团队') ? '👥 仅团队' :
                  pt.includes('个人') ? '🧑 仅个人' : pt;
 
+  const cardId = 'card-' + Date.now().toString(36) + '-' + index;
+  const deadline = comp.registration_deadline || '待定';
+  const deadlineShort = deadline.length > 7 ? deadline.substring(0, 7) : deadline;
+
   return `
-    <div class="comp-card ${topClass}">
-      <div class="card-header">
-        <div class="card-score">${score} <small>分</small></div>
+    <div class="comp-card ${topClass} collapsed" id="${cardId}">
+      <div class="card-header" onclick="toggleCard('${cardId}')">
+        <div class="card-score">${score}<small>%</small></div>
         <div class="card-name">${escHtml(name)}</div>
         <div class="card-meta">
           <span class="card-tag tag-cat">${escHtml(cat)}</span>
           ${focusLabels}
-          <span class="card-tag tag-score">${stars} ${wiText}</span>
+          <span class="card-tag tag-deadline">⏰ ${deadlineShort}截止</span>
+          <span class="card-toggle">▼</span>
         </div>
       </div>
       <div class="card-body">
@@ -992,15 +997,23 @@ function buildCard(comp, index) {
         ` : ''}
         ${benefits ? `<p class="label">💡 为什么参加</p><p>${escHtml(benefits)}</p>` : ''}
         ${pitfalls ? `<p class="label">⚠️ 注意事项</p><p>${escHtml(pitfalls)}</p>` : ''}
+        <p class="label">⭐ 推荐指数</p><p>${stars} · ${wiText}</p>
       </div>
       <div class="card-footer">
         <span>📌 ${ptText}</span>
         <span>${feeText}</span>
         <span>⏰ 截止: ${comp.registration_deadline || '未知'}</span>
-        ${comp.official_url && comp.official_url !== '未知' ? `<span>🔗 <a href="${escHtml(comp.official_url)}" target="_blank">官网</a></span>` : ''}
+        ${comp.official_url && comp.official_url !== '未知' ? `<span>🔗 <a href="${escHtml(comp.official_url)}" target="_blank" onclick="event.stopPropagation()">官网</a></span>` : ''}
       </div>
     </div>
   `;
+}
+
+/** 切换卡片折叠/展开 */
+function toggleCard(id) {
+  const card = document.getElementById(id);
+  if (!card) return;
+  card.classList.toggle('collapsed');
 }
 
 // ═══════════════════════════════════════

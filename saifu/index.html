@@ -83,6 +83,16 @@ textarea { resize: vertical; min-height: 60px; }
 .inline-other input { width: 200px; }
 .sub-field { margin-left: 24px; padding-left: 12px; border-left: 2px solid var(--border); }
 
+/* 卡片折叠 */
+.comp-card.collapsed .card-body,
+.comp-card.collapsed .card-footer { display: none; }
+.comp-card .card-header { cursor: pointer; user-select: none; }
+.comp-card.collapsed .card-header { border-bottom: none; }
+.comp-card.collapsed .card-score { font-size: 18px; font-weight: 700; }
+.comp-card .card-toggle { font-size: 11px; color: #bbb; transition: transform 0.3s; margin-left: auto; }
+.comp-card:not(.collapsed) .card-toggle { transform: rotate(180deg); color: var(--accent); }
+.tag-deadline { background: #fce4ec; color: #c62828; }
+
 /* 技能搜索过滤 */
 .skill-filter {
   width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px;

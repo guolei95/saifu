@@ -192,12 +192,12 @@ def _kb_result_to_recommendation(kb_item: dict) -> dict:
     }
 
 
-def run_research(user_data: dict, api_key: str | None = None) -> dict:
+def run_research(user_data: dict, api_key: str | dict | None = None) -> dict:
     """执行个性化竞赛调研 — LLM分析 + 知识库强制匹配。
 
     Args:
         user_data: 从报告解析出的用户画像 dict
-        api_key: 可选，用户自己的 API Key
+        api_key: 可选，用户 API Key（字符串或 {"api_key","base_url","model"} dict）
 
     Returns:
         dict: 调研结果，含 recommendations / advice / risks / summary

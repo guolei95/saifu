@@ -179,12 +179,12 @@ def _val(m, *keys):
     return None
 
 
-def match_competitions(profile: dict, api_key: str | None = None) -> dict:
+def match_competitions(profile: dict, api_key: str | dict | None = None) -> dict:
     """竞赛匹配主流程。
 
     Args:
         profile: 用户画像 dict（25 字段，不全的字段自动用默认值）
-        api_key: 可选，用户自己的 API Key，不传则用服务器 Key
+        api_key: 可选，用户 API Key（字符串或 {"api_key","base_url","model"} dict）
 
     Returns:
         dict: 匹配结果，包含 open/closed/resources/tips/myths
@@ -435,13 +435,13 @@ def match_competitions(profile: dict, api_key: str | None = None) -> dict:
     }
 
 
-def generate_personal_summary(profile: dict, top_matches: list, api_key: str | None = None) -> dict:
+def generate_personal_summary(profile: dict, top_matches: list, api_key: str | dict | None = None) -> dict:
     """基于用户画像和匹配结果，生成个性化总结（备赛建议、风险提示、总体评估）。
 
     Args:
         profile: 用户画像 dict
         top_matches: 前 N 个匹配竞赛列表
-        api_key: 可选，用户自己的 API Key
+        api_key: 可选，用户 API Key（字符串或 dict）
 
     Returns:
         {"advice": {...}, "risks": [...], "summary": "..."}

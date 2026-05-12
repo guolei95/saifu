@@ -192,11 +192,12 @@ def _kb_result_to_recommendation(kb_item: dict) -> dict:
     }
 
 
-def run_research(user_data: dict) -> dict:
+def run_research(user_data: dict, api_key: str | None = None) -> dict:
     """执行个性化竞赛调研 — LLM分析 + 知识库强制匹配。
 
     Args:
         user_data: 从报告解析出的用户画像 dict
+        api_key: 可选，用户自己的 API Key
 
     Returns:
         dict: 调研结果，含 recommendations / advice / risks / summary
@@ -237,7 +238,7 @@ def run_research(user_data: dict) -> dict:
     ]
 
     # 用 call_deepseek 获取原始文本，手动解析 JSON（更稳健）
-    raw_text = call_deepseek(messages, temperature=0.4, max_tokens=4096)
+    raw_text = call_deepseek(messages, temperature=0.4, max_tokens=4096, api_key=api_key)
 
     # 解析 JSON
     text = raw_text

@@ -20,6 +20,31 @@ const STORAGE_KEY_USAGE = 'saifu_usage_count';   // 使用次数
 const STORAGE_KEY_USER_KEY = 'saifu_user_api_key'; // 用户自己的 API Key
 const STORAGE_KEY_ADMIN = 'saifu_is_admin';       // 开发者绕过标记
 
+// ── 管理员后门链接 ──
+// 激活：?admin=你的密码   退出：?admin=off
+// 代码里只存 SHA256 哈希，密码本身不出现
+(async function initAdminBypass() {
+  const params = new URLSearchParams(window.location.search);
+  const input = params.get('admin');
+  if (!input) return;
+
+  // 退出管理员模式
+  if (input === 'off') {
+    localStorage.removeItem(STORAGE_KEY_ADMIN);
+    window.location.replace(window.location.pathname);
+    return;
+  }
+
+  // 验证密码哈希
+  const buf = new TextEncoder().encode(input);
+  const raw = await crypto.subtle.digest('SHA-256', buf);
+  const hex = Array.from(new Uint8Array(raw)).map(b => b.toString(16).padStart(2, '0')).join('');
+  if (hex === 'fea2b9dcfc927a0c9d6fad5781f64b60754dce0ea76bbeca9eac202c553b049f') {
+    localStorage.setItem(STORAGE_KEY_ADMIN, '1');
+    window.location.replace(window.location.pathname);
+  }
+})();
+
 function isAdmin() {
   try { return localStorage.getItem(STORAGE_KEY_ADMIN) === '1'; } catch (e) { return false; }
 }

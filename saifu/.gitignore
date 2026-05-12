@@ -13,6 +13,9 @@ __pycache__/
 # 环境变量
 .env
 
+# 用户数据（含个人信息，不提交）
+backend/data/
+
 # 测试文件
 test_profile.json
 test-payload.json

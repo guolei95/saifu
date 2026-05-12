@@ -97,6 +97,30 @@ textarea { resize: vertical; min-height: 60px; }
 .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 10px 24px; border-radius: 20px; font-size: 14px; z-index: 2000; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
 .toast.show { opacity: 1; }
 
+/* ── 调研历史面板 ── */
+.history-panel { background: #fff; border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 14px; overflow: hidden; display: none; }
+.history-panel.show { display: block; }
+.history-header { padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); }
+.history-header h3 { font-size: 14px; font-weight: 600; }
+.history-clear { font-size: 12px; color: #999; cursor: pointer; background: none; border: none; }
+.history-clear:hover { color: var(--required); }
+.history-item { border-bottom: 1px solid #f0f0f0; }
+.history-item:last-child { border-bottom: none; }
+.history-item-bar { padding: 10px 20px; cursor: pointer; display: flex; align-items: center; gap: 10px; user-select: none; transition: background 0.15s; }
+.history-item-bar:hover { background: #fafbfc; }
+.history-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+.history-time { font-size: 12px; color: #999; white-space: nowrap; }
+.history-alias { font-size: 13px; font-weight: 600; color: var(--text-main); }
+.history-count { font-size: 12px; color: var(--text-secondary); margin-left: auto; white-space: nowrap; }
+.history-arrow { font-size: 10px; color: #999; transition: transform 0.3s; flex-shrink: 0; }
+.history-item.open .history-arrow { transform: rotate(180deg); }
+.history-item-delete { font-size: 11px; color: #ccc; cursor: pointer; background: none; border: none; padding: 2px 6px; flex-shrink: 0; }
+.history-item-delete:hover { color: var(--required); }
+.history-body { display: none; padding: 0 20px 16px; border-top: 1px dashed #eee; }
+.history-item.open .history-body { display: block; }
+.history-body .card-grid { margin-top: 12px; }
+.history-empty { padding: 20px; text-align: center; color: #999; font-size: 13px; }
+
 @media (max-width: 600px) {
   .container { padding: 12px 10px; }
   .section-body { padding: 14px; }
@@ -656,6 +680,15 @@ textarea { resize: vertical; min-height: 60px; }
     </div>
   </div>
 
+  <!-- ══ 调研历史 ══ -->
+  <div class="history-panel" id="historyPanel">
+    <div class="history-header">
+      <h3>📋 调研历史</h3>
+      <button class="history-clear" onclick="clearAllHistory()">🗑 清空</button>
+    </div>
+    <div id="historyList"></div>
+  </div>
+
   <!-- 结果展示 -->
   <div id="resultArea" style="display:none">
     <h2 class="result-title">🟢 报名中的竞赛</h2>
@@ -723,6 +756,71 @@ textarea { resize: vertical; min-height: 60px; }
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
+<!-- ── API Key 弹窗（免费次数用完后弹出）── -->
+<div class="api-key-modal-overlay" id="apiKeyModal" onclick="hideApiKeyModal(true)">
+  <div class="api-key-modal" onclick="event.stopPropagation()">
+    <button class="api-key-modal-close" onclick="hideApiKeyModal(true)">&times;</button>
+    <h3>🔐 免费次数已用完</h3>
+    <p style="color:#666;font-size:13px;margin-bottom:16px;">
+      你已使用 <strong id="apiKeyUsageCount">3</strong>/3 次免费匹配。继续使用需要你自己的 API Key。
+    </p>
+
+    <!-- 模型选择建议 -->
+    <div class="api-key-tiers">
+      <div class="tier-title">💡 模型越强，调研越精准 —— 但都很便宜</div>
+      <div class="tier-row tier-pro">
+        <span class="tier-name">🏆 旗舰</span>
+        <span>DeepSeek v4-pro / 豆包 Pro</span>
+        <span class="tier-price">~5 分/次</span>
+        <span>重要比赛首选</span>
+      </div>
+      <div class="tier-row tier-mid">
+        <span class="tier-name">⚡ 均衡</span>
+        <span>DeepSeek v4-flash</span>
+        <span class="tier-price">~1.6 分/次</span>
+        <span>日常调研</span>
+      </div>
+      <div class="tier-row tier-lite">
+        <span class="tier-name">💰 省钱</span>
+        <span>豆包 Seed 2.0 Lite</span>
+        <span class="tier-price">~1.5 分/次</span>
+        <span>大量匹配</span>
+      </div>
+    </div>
+
+    <!-- 两个平台注册入口 -->
+    <div class="api-key-platforms">
+      <a href="https://console.volcengine.com" target="_blank" class="platform-card">
+        <span class="platform-icon">🌋</span>
+        <span class="platform-name">火山引擎（豆包）</span>
+        <span class="platform-bonus">新用户送 50 万 tokens</span>
+        <span class="platform-arrow">去注册 →</span>
+      </a>
+      <a href="https://platform.deepseek.com" target="_blank" class="platform-card">
+        <span class="platform-icon">🐳</span>
+        <span class="platform-name">DeepSeek</span>
+        <span class="platform-bonus">新用户送 1000 万 tokens</span>
+        <span class="platform-arrow">去注册 →</span>
+      </a>
+    </div>
+
+    <!-- Key 输入 -->
+    <div class="api-key-input-row">
+      <input type="password" id="apiKeyInput" placeholder="粘贴你的 API Key（如 sk-xxx 或 ark-xxx）" autocomplete="off">
+    </div>
+    <button class="btn btn-primary" onclick="submitApiKey()" style="width:100%;justify-content:center;">
+      ✅ 确认使用
+    </button>
+
+    <!-- 信任保障 -->
+    <div class="api-key-trust">
+      <div class="trust-item">🔒 你的 Key <strong>只存在你的浏览器里</strong>，我们服务器收不到</div>
+      <div class="trust-item">🗑 每次调用<strong>即用即弃</strong>，不记录、不存盘、不上传 GitHub</div>
+      <div class="trust-item">👤 你自己去平台注册，<strong>你自己的账号你自己控制</strong></div>
+    </div>
+  </div>
+</div>
+
 <!-- 联系方式弹窗 -->
 <div class="contact-modal-overlay" id="contactModal" onclick="hideContactModal(event)">
   <div class="contact-modal" onclick="event.stopPropagation()">
@@ -780,6 +878,67 @@ textarea { resize: vertical; min-height: 60px; }
 .risk-type { font-weight: 600; font-size: 14px; color: var(--required); margin-bottom: 4px; }
 .risk-detail { font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; }
 .risk-solution { font-size: 13px; color: var(--optional); font-weight: 500; }
+
+/* ── API Key 弹窗 ── */
+.api-key-modal-overlay {
+  display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.45); z-index: 10000; justify-content: center; align-items: center;
+}
+.api-key-modal-overlay.show { display: flex; }
+.api-key-modal {
+  background: #fff; border-radius: 14px; padding: 28px 32px; max-width: 480px; width: 92%;
+  max-height: 90vh; overflow-y: auto; position: relative;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+}
+.api-key-modal h3 { margin: 0 0 8px; font-size: 18px; color: #2c3e50; }
+.api-key-modal-close {
+  position: absolute; top: 10px; right: 14px; border: none; background: none;
+  font-size: 24px; cursor: pointer; color: #999; line-height: 1;
+}
+/* 模型档位参考 */
+.api-key-tiers {
+  background: #f8f9fa; border-radius: 8px; padding: 10px 14px; margin-bottom: 16px;
+  font-size: 12px;
+}
+.tier-title { font-weight: 600; margin-bottom: 8px; color: #2c3e50; font-size: 13px; }
+.tier-row {
+  display: grid; grid-template-columns: 50px 1fr 60px 80px; gap: 6px;
+  padding: 5px 0; border-bottom: 1px solid #eee; align-items: center;
+}
+.tier-row:last-child { border-bottom: none; }
+.tier-name { font-weight: 600; }
+.tier-price { color: var(--accent); font-weight: 600; text-align: center; }
+/* 平台注册卡片 */
+.api-key-platforms { display: flex; gap: 10px; margin-bottom: 16px; }
+.platform-card {
+  flex: 1; border: 1px solid var(--border); border-radius: 8px; padding: 12px;
+  text-decoration: none; color: var(--text-main); transition: border 0.2s, box-shadow 0.2s;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.platform-card:hover { border-color: var(--accent); box-shadow: 0 2px 8px rgba(91,106,240,0.12); }
+.platform-icon { font-size: 20px; }
+.platform-name { font-weight: 600; font-size: 13px; }
+.platform-bonus { font-size: 11px; color: var(--optional); }
+.platform-arrow { font-size: 11px; color: var(--accent); margin-top: 4px; }
+/* Key 输入 */
+.api-key-input-row { margin-bottom: 12px; }
+.api-key-input-row input {
+  width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px;
+  font-size: 14px; font-family: monospace; background: #fafbfc; transition: border 0.2s;
+}
+.api-key-input-row input:focus { outline: none; border-color: var(--accent); }
+/* 信任保障 */
+.api-key-trust {
+  margin-top: 16px; padding-top: 12px; border-top: 1px solid #eee;
+  font-size: 12px; color: #888; display: flex; flex-direction: column; gap: 6px;
+}
+.trust-item strong { color: #555; }
+
+@media (max-width: 480px) {
+  .api-key-modal { padding: 20px 18px; }
+  .api-key-platforms { flex-direction: column; }
+  .tier-row { grid-template-columns: 40px 1fr 50px 60px; font-size: 11px; }
+}
 </style>
 
 <!-- ========== 主 JS ========== -->

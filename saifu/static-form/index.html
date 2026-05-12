@@ -87,6 +87,16 @@ textarea { resize: vertical; min-height: 60px; }
 .sub-field { margin-left: 24px; padding-left: 12px; border-left: 2px solid var(--border); }
 .category-label { font-size: 11px; color: #999; margin-bottom: 4px; }
 
+/* 技能搜索过滤 */
+.skill-filter {
+  width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px;
+  font-size: 14px; background: #fafbfc; transition: border 0.2s, box-shadow 0.2s;
+}
+.skill-filter:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
+.option-item.skill-hidden { display: none; }
+.no-skill-match { display: none; font-size: 13px; color: #999; padding: 8px 0; }
+.no-skill-match.show { display: block; }
+
 /* ── 按钮 ── */
 .btn {
   padding: 8px 18px; border: none; border-radius: 6px; font-size: 14px; cursor: pointer;
@@ -268,56 +278,50 @@ textarea { resize: vertical; min-height: 60px; }
           <input type="text" id="core-skills" placeholder="如：Python编程、英语翻译、数据分析、市场调研、临床诊断、平面设计、数学建模" oninput="updateProgress()">
         </div>
         <div class="field">
-          <label class="field-label">技能领域 <span class="field-hint">可多选，覆盖全学科</span></label>
-          <div class="category-label">理/工科</div>
-          <div class="option-group" style="margin-bottom:10px;">
-            <label class="option-item"><input type="checkbox" name="tech-direction" value="AI应用/大模型" onchange="updateProgress()"><span class="option-tag">AI应用/大模型</span></label>
-            <label class="option-item"><input type="checkbox" name="tech-direction" value="Web前端" onchange="updateProgress()"><span class="option-tag">Web前端</span></label>
-            <label class="option-item"><input type="checkbox" name="tech-direction" value="Web后端" onchange="updateProgress()"><span class="option-tag">Web后端</span></label>
-            <label class="option-item"><input type="checkbox" name="tech-direction" value="移动端开发" onchange="updateProgress()"><span class="option-tag">移动端开发</span></label>
-            <label class="option-item"><input type="checkbox" name="tech-direction" value="数据分析" onchange="updateProgress()"><span class="option-tag">数据分析</span></label>
-            <label class="option-item"><input type="checkbox" name="tech-direction" value="算法竞赛" onchange="updateProgress()"><span class="option-tag">算法竞赛</span></label>
-            <label class="option-item"><input type="checkbox" name="tech-direction" value="硬件/嵌入式" onchange="updateProgress()"><span class="option-tag">硬件/嵌入式</span></label>
-            <label class="option-item"><input type="checkbox" name="tech-direction" value="数学建模" onchange="updateProgress()"><span class="option-tag">数学建模</span></label>
-            <label class="option-item"><input type="checkbox" name="tech-direction" value="物理/化学/生物实验" onchange="updateProgress()"><span class="option-tag">物理/化学/生物实验</span></label>
-            <label class="option-item"><input type="checkbox" name="tech-direction" value="网络安全" onchange="updateProgress()"><span class="option-tag">网络安全</span></label>
-          </div>
-          <div class="category-label">人文社科</div>
-          <div class="option-group" style="margin-bottom:10px;">
-            <label class="option-item"><input type="checkbox" name="tech-direction" value="写作与文案" onchange="updateProgress()"><span class="option-tag">写作与文案</span></label>
-            <label class="option-item"><input type="checkbox" name="tech-direction" value="翻译与外语" onchange="updateProgress()"><span class="option-tag">翻译与外语</span></label>
-            <label class="option-item"><input type="checkbox" name="tech-direction" value="社会调查与统计" onchange="updateProgress()"><span class="option-tag">社会调查与统计</span></label>
-            <label class="option-item"><input type="checkbox" name="tech-direction" value="新闻与传播" onchange="updateProgress()"><span class="option-tag">新闻与传播</span></label>
-            <label class="option-item"><input type="checkbox" name="tech-direction" value="法律与政策研究" onchange="updateProgress()"><span class="option-tag">法律与政策研究</span></label>
-            <label class="option-item"><input type="checkbox" name="tech-direction" value="教育教学" onchange="updateProgress()"><span class="option-tag">教育教学</span></label>
-            <label class="option-item"><input type="checkbox" name="tech-direction" value="哲学/历史研究" onchange="updateProgress()"><span class="option-tag">哲学/历史研究</span></label>
-          </div>
-          <div class="category-label">商科</div>
-          <div class="option-group" style="margin-bottom:10px;">
-            <label class="option-item"><input type="checkbox" name="tech-direction" value="市场营销" onchange="updateProgress()"><span class="option-tag">市场营销</span></label>
-            <label class="option-item"><input type="checkbox" name="tech-direction" value="商业策划" onchange="updateProgress()"><span class="option-tag">商业策划</span></label>
-            <label class="option-item"><input type="checkbox" name="tech-direction" value="财务分析" onchange="updateProgress()"><span class="option-tag">财务分析</span></label>
-            <label class="option-item"><input type="checkbox" name="tech-direction" value="金融建模" onchange="updateProgress()"><span class="option-tag">金融建模</span></label>
-            <label class="option-item"><input type="checkbox" name="tech-direction" value="案例分析" onchange="updateProgress()"><span class="option-tag">案例分析</span></label>
-            <label class="option-item"><input type="checkbox" name="tech-direction" value="产品/项目管理" onchange="updateProgress()"><span class="option-tag">产品/项目管理</span></label>
-          </div>
-          <div class="category-label">艺术设计</div>
-          <div class="option-group" style="margin-bottom:10px;">
-            <label class="option-item"><input type="checkbox" name="tech-direction" value="平面设计" onchange="updateProgress()"><span class="option-tag">平面设计</span></label>
-            <label class="option-item"><input type="checkbox" name="tech-direction" value="UI/UX设计" onchange="updateProgress()"><span class="option-tag">UI/UX设计</span></label>
-            <label class="option-item"><input type="checkbox" name="tech-direction" value="数字媒体/动画" onchange="updateProgress()"><span class="option-tag">数字媒体/动画</span></label>
-            <label class="option-item"><input type="checkbox" name="tech-direction" value="视频剪辑/摄影" onchange="updateProgress()"><span class="option-tag">视频剪辑/摄影</span></label>
-            <label class="option-item"><input type="checkbox" name="tech-direction" value="游戏开发" onchange="updateProgress()"><span class="option-tag">游戏开发</span></label>
-            <label class="option-item"><input type="checkbox" name="tech-direction" value="音乐/舞蹈/表演" onchange="updateProgress()"><span class="option-tag">音乐/舞蹈/表演</span></label>
-          </div>
-          <div class="category-label">医学</div>
-          <div class="option-group" style="margin-bottom:4px;">
-            <label class="option-item"><input type="checkbox" name="tech-direction" value="基础医学研究" onchange="updateProgress()"><span class="option-tag">基础医学研究</span></label>
-            <label class="option-item"><input type="checkbox" name="tech-direction" value="临床技能" onchange="updateProgress()"><span class="option-tag">临床技能</span></label>
-            <label class="option-item"><input type="checkbox" name="tech-direction" value="药学/中药学" onchange="updateProgress()"><span class="option-tag">药学/中药学</span></label>
-            <label class="option-item"><input type="checkbox" name="tech-direction" value="护理/康复" onchange="updateProgress()"><span class="option-tag">护理/康复</span></label>
-            <label class="option-item"><input type="checkbox" name="tech-direction" value="公共卫生" onchange="updateProgress()"><span class="option-tag">公共卫生</span></label>
-            <label class="option-item"><input type="checkbox" name="tech-direction" value="__OTHER__" onchange="toggleOther('tech-direction-other');updateProgress()"><span class="option-tag">其他</span></label>
+          <label class="field-label">技能领域 <span class="field-hint">可多选，关键词搜索过滤</span></label>
+          <input type="text" class="skill-filter" id="skill-filter" placeholder="🔍 输入关键词过滤技能..." oninput="filterSkillTags()" style="margin-bottom:10px;">
+          <div class="no-skill-match" id="no-skill-match">⚠️ 没有匹配的技能，试试其他关键词</div>
+          <div class="option-group" id="tech-direction-group">
+            <!-- 技术与工程 -->
+            <label class="option-item" data-skill-keywords="ai 人工智能 大模型 llm"><input type="checkbox" name="tech-direction" value="AI应用/大模型" onchange="updateProgress()"><span class="option-tag">AI应用/大模型</span></label>
+            <label class="option-item" data-skill-keywords="前端 web react vue 编程"><input type="checkbox" name="tech-direction" value="Web前端" onchange="updateProgress()"><span class="option-tag">Web前端</span></label>
+            <label class="option-item" data-skill-keywords="后端 服务端 编程 api"><input type="checkbox" name="tech-direction" value="Web后端" onchange="updateProgress()"><span class="option-tag">Web后端</span></label>
+            <label class="option-item" data-skill-keywords="移动 app ios android 手机"><input type="checkbox" name="tech-direction" value="移动端开发" onchange="updateProgress()"><span class="option-tag">移动端开发</span></label>
+            <label class="option-item" data-skill-keywords="数据 统计 python pandas 可视化"><input type="checkbox" name="tech-direction" value="数据分析" onchange="updateProgress()"><span class="option-tag">数据分析</span></label>
+            <label class="option-item" data-skill-keywords="算法 竞赛 leetcode acm"><input type="checkbox" name="tech-direction" value="算法竞赛" onchange="updateProgress()"><span class="option-tag">算法竞赛</span></label>
+            <label class="option-item" data-skill-keywords="硬件 嵌入式 单片机 iot"><input type="checkbox" name="tech-direction" value="硬件/嵌入式" onchange="updateProgress()"><span class="option-tag">硬件/嵌入式</span></label>
+            <label class="option-item" data-skill-keywords="数学 建模 优化 仿真"><input type="checkbox" name="tech-direction" value="数学建模" onchange="updateProgress()"><span class="option-tag">数学建模</span></label>
+            <label class="option-item" data-skill-keywords="物理 化学 生物 实验 科研"><input type="checkbox" name="tech-direction" value="物理/化学/生物实验" onchange="updateProgress()"><span class="option-tag">物理/化学/生物实验</span></label>
+            <label class="option-item" data-skill-keywords="安全 网络 渗透 加密 攻防"><input type="checkbox" name="tech-direction" value="网络安全" onchange="updateProgress()"><span class="option-tag">网络安全</span></label>
+            <!-- 人文社科 -->
+            <label class="option-item" data-skill-keywords="写作 文案 内容 编辑 文字"><input type="checkbox" name="tech-direction" value="写作与文案" onchange="updateProgress()"><span class="option-tag">写作与文案</span></label>
+            <label class="option-item" data-skill-keywords="翻译 外语 英语 日语 语言"><input type="checkbox" name="tech-direction" value="翻译与外语" onchange="updateProgress()"><span class="option-tag">翻译与外语</span></label>
+            <label class="option-item" data-skill-keywords="调查 统计 问卷 社会 调研"><input type="checkbox" name="tech-direction" value="社会调查与统计" onchange="updateProgress()"><span class="option-tag">社会调查与统计</span></label>
+            <label class="option-item" data-skill-keywords="新闻 传播 媒体 运营 自媒体"><input type="checkbox" name="tech-direction" value="新闻与传播" onchange="updateProgress()"><span class="option-tag">新闻与传播</span></label>
+            <label class="option-item" data-skill-keywords="法律 政策 法规 研究"><input type="checkbox" name="tech-direction" value="法律与政策研究" onchange="updateProgress()"><span class="option-tag">法律与政策研究</span></label>
+            <label class="option-item" data-skill-keywords="教育 教学 培训 课程"><input type="checkbox" name="tech-direction" value="教育教学" onchange="updateProgress()"><span class="option-tag">教育教学</span></label>
+            <label class="option-item" data-skill-keywords="哲学 历史 人文 理论"><input type="checkbox" name="tech-direction" value="哲学/历史研究" onchange="updateProgress()"><span class="option-tag">哲学/历史研究</span></label>
+            <!-- 商科 -->
+            <label class="option-item" data-skill-keywords="营销 市场 推广 品牌 运营"><input type="checkbox" name="tech-direction" value="市场营销" onchange="updateProgress()"><span class="option-tag">市场营销</span></label>
+            <label class="option-item" data-skill-keywords="商业 策划 创业 计划书 bp"><input type="checkbox" name="tech-direction" value="商业策划" onchange="updateProgress()"><span class="option-tag">商业策划</span></label>
+            <label class="option-item" data-skill-keywords="财务 会计 审计 报表"><input type="checkbox" name="tech-direction" value="财务分析" onchange="updateProgress()"><span class="option-tag">财务分析</span></label>
+            <label class="option-item" data-skill-keywords="金融 建模 投资 量化"><input type="checkbox" name="tech-direction" value="金融建模" onchange="updateProgress()"><span class="option-tag">金融建模</span></label>
+            <label class="option-item" data-skill-keywords="案例 分析 咨询 战略"><input type="checkbox" name="tech-direction" value="案例分析" onchange="updateProgress()"><span class="option-tag">案例分析</span></label>
+            <label class="option-item" data-skill-keywords="产品 项目管理 pm 经理"><input type="checkbox" name="tech-direction" value="产品/项目管理" onchange="updateProgress()"><span class="option-tag">产品/项目管理</span></label>
+            <!-- 设计与创意 -->
+            <label class="option-item" data-skill-keywords="平面 设计 ps 视觉 海报"><input type="checkbox" name="tech-direction" value="平面设计" onchange="updateProgress()"><span class="option-tag">平面设计</span></label>
+            <label class="option-item" data-skill-keywords="ui ux 交互 界面 用户体验"><input type="checkbox" name="tech-direction" value="UI/UX设计" onchange="updateProgress()"><span class="option-tag">UI/UX设计</span></label>
+            <label class="option-item" data-skill-keywords="数字媒体 动画 3d 多媒体"><input type="checkbox" name="tech-direction" value="数字媒体/动画" onchange="updateProgress()"><span class="option-tag">数字媒体/动画</span></label>
+            <label class="option-item" data-skill-keywords="视频 剪辑 摄影 拍摄 后期"><input type="checkbox" name="tech-direction" value="视频剪辑/摄影" onchange="updateProgress()"><span class="option-tag">视频剪辑/摄影</span></label>
+            <label class="option-item" data-skill-keywords="游戏 开发 unity unreal 引擎"><input type="checkbox" name="tech-direction" value="游戏开发" onchange="updateProgress()"><span class="option-tag">游戏开发</span></label>
+            <label class="option-item" data-skill-keywords="音乐 舞蹈 表演 艺术 舞台"><input type="checkbox" name="tech-direction" value="音乐/舞蹈/表演" onchange="updateProgress()"><span class="option-tag">音乐/舞蹈/表演</span></label>
+            <!-- 医学 -->
+            <label class="option-item" data-skill-keywords="医学 基础 研究 实验 生物"><input type="checkbox" name="tech-direction" value="基础医学研究" onchange="updateProgress()"><span class="option-tag">基础医学研究</span></label>
+            <label class="option-item" data-skill-keywords="临床 技能 诊断 治疗"><input type="checkbox" name="tech-direction" value="临床技能" onchange="updateProgress()"><span class="option-tag">临床技能</span></label>
+            <label class="option-item" data-skill-keywords="药学 中药 药物 制剂"><input type="checkbox" name="tech-direction" value="药学/中药学" onchange="updateProgress()"><span class="option-tag">药学/中药学</span></label>
+            <label class="option-item" data-skill-keywords="护理 康复 健康"><input type="checkbox" name="tech-direction" value="护理/康复" onchange="updateProgress()"><span class="option-tag">护理/康复</span></label>
+            <label class="option-item" data-skill-keywords="公共卫生 流行病 防疫 卫生"><input type="checkbox" name="tech-direction" value="公共卫生" onchange="updateProgress()"><span class="option-tag">公共卫生</span></label>
+            <label class="option-item"><input type="checkbox" name="tech-direction" value="__OTHER__" onchange="toggleOther('tech-direction-other');updateProgress()"><span class="option-tag">+ 其他</span></label>
           </div>
           <div class="inline-other" id="tech-direction-other-wrap">
             <input type="text" id="tech-direction-other" placeholder="请输入其他技能领域" oninput="updateProgress()">
@@ -666,6 +670,37 @@ function toggleOther(id) {
     });
     if (anyChecked) wrap.classList.add('show');
     else wrap.classList.remove('show');
+  }
+}
+
+// ── 技能标签搜索过滤 ──
+function filterSkillTags() {
+  const filter = document.getElementById('skill-filter');
+  if (!filter) return;
+  const q = filter.value.trim().toLowerCase();
+  const items = document.querySelectorAll('#tech-direction-group .option-item');
+  let visibleCount = 0;
+  items.forEach(function(item) {
+    const cb = item.querySelector('input');
+    const isOther = cb && cb.value === '__OTHER__';
+    const isChecked = cb && cb.checked;
+    if (!q || isOther || isChecked) {
+      item.classList.remove('skill-hidden');
+      visibleCount++;
+      return;
+    }
+    const keywords = (item.dataset.skillKeywords || '').toLowerCase();
+    const label = (item.querySelector('.option-tag')?.textContent || '').toLowerCase();
+    if (label.includes(q) || keywords.includes(q)) {
+      item.classList.remove('skill-hidden');
+      visibleCount++;
+    } else {
+      item.classList.add('skill-hidden');
+    }
+  });
+  const noMatch = document.getElementById('no-skill-match');
+  if (noMatch) {
+    noMatch.classList.toggle('show', visibleCount <= 1 && q);
   }
 }
 

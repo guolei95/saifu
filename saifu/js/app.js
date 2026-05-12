@@ -13,6 +13,112 @@ const API_BASE_URL = window.location.hostname === 'localhost'
 const MATCH_TIMEOUT = 300000; // 300 秒超时（搜索+多轮AI调用需要时间）
 
 // ═══════════════════════════════════════
+// 免费试用次数限制 — 独立模块（想删掉整个功能删这里到下一个分隔线）
+// ═══════════════════════════════════════
+const FREE_LIMIT = 3;                       // 免费试用次数
+const STORAGE_KEY_USAGE = 'saifu_usage_count';   // 使用次数
+const STORAGE_KEY_USER_KEY = 'saifu_user_api_key'; // 用户自己的 API Key
+const STORAGE_KEY_ADMIN = 'saifu_is_admin';       // 开发者绕过标记
+
+function isAdmin() {
+  try { return localStorage.getItem(STORAGE_KEY_ADMIN) === '1'; } catch (e) { return false; }
+}
+
+function getUsageCount() {
+  try { return parseInt(localStorage.getItem(STORAGE_KEY_USAGE) || '0', 10); } catch (e) { return 0; }
+}
+
+function incrementUsage() {
+  if (isAdmin()) return;           // 开发者不计数
+  if (getUserApiKeyForRequest()) return; // 用自己的 Key 不消耗免费次数
+  try {
+    const count = getUsageCount();
+    localStorage.setItem(STORAGE_KEY_USAGE, String(count + 1));
+  } catch (e) { /* ignore */ }
+}
+
+function getUserApiKey() {
+  try { return (localStorage.getItem(STORAGE_KEY_USER_KEY) || '').trim(); } catch (e) { return ''; }
+}
+
+function setUserApiKey(key) {
+  try { localStorage.setItem(STORAGE_KEY_USER_KEY, key.trim()); } catch (e) { /* ignore */ }
+}
+
+/**
+ * 检查使用次数，返回 true 表示可以继续，false 表示被阻止。
+ * 如果次数超限且没有存储的 Key，弹出 API Key 输入框。
+ * 返回 Promise，因为在弹窗中等待用户操作。
+ */
+function checkUsageAndPrompt() {
+  return new Promise((resolve) => {
+    // 开发者无限使用
+    if (isAdmin()) { resolve(true); return; }
+
+    const count = getUsageCount();
+    const storedKey = getUserApiKey();
+
+    // 免费次数内，或有用户自己的 Key → 直接放行
+    if (count < FREE_LIMIT || storedKey) {
+      resolve(true);
+      return;
+    }
+
+    // 免费次数用完且没有 Key → 弹窗
+    showApiKeyModal(resolve);
+  });
+}
+
+/** 获取当前请求应带的 API Key（用户自己的 > 无） */
+function getUserApiKeyForRequest() {
+  if (isAdmin()) return ''; // 开发者走服务器 Key
+  const count = getUsageCount();
+  if (count < FREE_LIMIT) return ''; // 免费次数内走服务器 Key
+  return getUserApiKey(); // 用自己的 Key
+}
+
+// ── API Key 弹窗 ──
+function showApiKeyModal(resolveCallback) {
+  const modal = document.getElementById('apiKeyModal');
+  if (!modal) { resolveCallback(false); return; }
+
+  // 动态更新次数显示
+  const countEl = document.getElementById('apiKeyUsageCount');
+  if (countEl) countEl.textContent = getUsageCount();
+
+  // 重置输入框
+  const input = document.getElementById('apiKeyInput');
+  if (input) input.value = '';
+
+  modal._resolveApiKey = resolveCallback;
+  modal.classList.add('show');
+}
+
+function hideApiKeyModal(cancelled) {
+  const modal = document.getElementById('apiKeyModal');
+  if (!modal) return;
+  modal.classList.remove('show');
+  if (modal._resolveApiKey) {
+    modal._resolveApiKey(!cancelled);
+    delete modal._resolveApiKey;
+  }
+}
+
+function submitApiKey() {
+  const input = document.getElementById('apiKeyInput');
+  const key = (input?.value || '').trim();
+  if (!key) {
+    alert('请输入有效的 API Key');
+    return;
+  }
+  setUserApiKey(key);
+  hideApiKeyModal(false);
+}
+// ═══════════════════════════════════════
+// 免费试用次数限制 — 模块结束
+// ═══════════════════════════════════════
+
+// ═══════════════════════════════════════
 // 表单区块折叠
 // ═══════════════════════════════════════
 function toggleFormSection(id) {
@@ -71,6 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // 初始化时也跑一遍
   updateProgress();
   updateExportHints();
+  renderHistoryPanel();
 
   // 自动恢复上次草稿（新开页面不用重新填）
   try {
@@ -156,6 +263,112 @@ function clearForm() {
   updateProgress();
   try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
   showToast('已清空 ✅');
+}
+
+// ═══════════════════════════════════════
+// 调研历史缓存（localStorage）
+// ═══════════════════════════════════════
+const HISTORY_KEY = 'saifu_results_history';
+const MAX_HISTORY = 20;
+
+function saveResultToHistory(resultData) {
+  try {
+    const alias = getAlias();
+    const openCount = (resultData.open || []).length;
+    const importCount = (resultData.recommendations || []).length;
+    const matchCount = openCount || importCount || 0;
+    const entry = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      timestamp: new Date().toLocaleString('zh-CN', { month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit' }),
+      alias: alias || '未署名',
+      matchCount: matchCount,
+      resultData: resultData,
+    };
+    let history = loadResultHistory();
+    history.unshift(entry);
+    if (history.length > MAX_HISTORY) history = history.slice(0, MAX_HISTORY);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+    renderHistoryPanel();
+  } catch(e){}
+}
+
+function loadResultHistory() {
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch(e){ return []; }
+}
+
+function deleteHistoryItem(id, ev) {
+  ev.stopPropagation();
+  let h = loadResultHistory().filter(e => e.id !== id);
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(h));
+  renderHistoryPanel();
+  showToast('已删除');
+}
+
+function clearAllHistory() {
+  if (!confirm('确定清空所有调研历史吗？此操作不可恢复。')) return;
+  localStorage.removeItem(HISTORY_KEY);
+  renderHistoryPanel();
+  showToast('已清空');
+}
+
+function toggleHistoryItem(id) {
+  const item = document.getElementById('hist-' + id);
+  if (!item) return;
+  item.classList.toggle('open');
+  const body = document.getElementById('hist-body-' + id);
+  if (!body || body._rendered || !item.classList.contains('open')) return;
+  body._rendered = true;
+  const data = body._resultData;
+  if (!data) return;
+  let html = '';
+  const items = data.open || data.recommendations || [];
+  if (items.length > 0) {
+    html += '<div class="card-grid" style="margin-top:12px;">';
+    items.forEach((c, i) => { html += buildCard(c, i); });
+    html += '</div>';
+  }
+  const advice = data.advice || {};
+  if (advice.time_plan || advice.skill_improvement || advice.team_strategy) {
+    html += '<h3 style="margin-top:16px;">📝 备赛建议</h3>';
+    if (advice.time_plan) html += '<p style="font-size:13px;white-space:pre-wrap;margin-bottom:8px;">⏰ ' + escHtml(advice.time_plan) + '</p>';
+    if (advice.skill_improvement) html += '<p style="font-size:13px;white-space:pre-wrap;margin-bottom:8px;">📚 ' + escHtml(advice.skill_improvement) + '</p>';
+    if (advice.team_strategy) html += '<p style="font-size:13px;white-space:pre-wrap;">👥 ' + escHtml(advice.team_strategy) + '</p>';
+  }
+  const risks = data.risks || [];
+  if (risks.length > 0) {
+    html += '<h3 style="margin-top:16px;">⚠️ 风险提示</h3>';
+    risks.forEach(r => {
+      html += '<div class="risk-item"><div class="risk-type">⚠ ' + escHtml(r.type||'') + '</div><div class="risk-detail">' + escHtml(r.detail||'') + '</div><div class="risk-solution">💡 应对：' + escHtml(r.solution||'') + '</div></div>';
+    });
+  }
+  if (data.summary) {
+    html += '<h3 style="margin-top:16px;">📋 总体评估</h3><p style="font-size:13px;white-space:pre-wrap;">' + escHtml(data.summary) + '</p>';
+  }
+  body.innerHTML = html;
+}
+
+function renderHistoryPanel() {
+  const panel = document.getElementById('historyPanel');
+  const list = document.getElementById('historyList');
+  if (!panel || !list) return;
+  const history = loadResultHistory();
+  if (history.length === 0) { panel.classList.remove('show'); return; }
+  panel.classList.add('show');
+  list.innerHTML = history.map(h => {
+    return '<div class="history-item" id="hist-' + h.id + '">' +
+      '<div class="history-item-bar" onclick="toggleHistoryItem(\'' + h.id + '\')">' +
+      '<span class="history-dot"></span>' +
+      '<span class="history-time">' + escHtml(h.timestamp) + '</span>' +
+      '<span class="history-alias">' + escHtml(h.alias) + '</span>' +
+      '<span class="history-count">' + h.matchCount + ' 个竞赛</span>' +
+      '<button class="history-item-delete" onclick="deleteHistoryItem(\'' + h.id + '\', event)" title="删除">✕</button>' +
+      '<span class="history-arrow">▼</span></div>' +
+      '<div class="history-body" id="hist-body-' + h.id + '"></div></div>';
+  }).join('');
+  history.forEach(h => {
+    const body = document.getElementById('hist-body-' + h.id);
+    if (body) body._resultData = h.resultData;
+  });
 }
 
 // ═══════════════════════════════════════
@@ -398,12 +611,22 @@ function collectProfile() {
 // 开始匹配（提交+轮询模式）
 // ═══════════════════════════════════════
 async function startMatch() {
+  // ── 免费试用次数检查 ──
+  const canProceed = await checkUsageAndPrompt();
+  if (!canProceed) return;
+
   const profile = collectProfile();
 
   // 基础校验
   if (!profile.school || !profile.major || !profile.grade) {
     alert('请至少填写学校、专业和年级');
     return;
+  }
+
+  // 附带用户 API Key（如有）
+  const userKey = getUserApiKeyForRequest();
+  if (userKey) {
+    profile.user_api_key = userKey;
   }
 
   // 显示加载
@@ -460,6 +683,7 @@ async function startMatch() {
           if (!pollData.result || !pollData.result.success) {
             throw new Error((pollData.result && pollData.result.error) || '匹配失败');
           }
+          incrementUsage();
           renderResults(pollData.result);
           return;
         }
@@ -693,6 +917,9 @@ function renderResults(data) {
     summaryArea.style.display = 'none';
   }
 
+  // 缓存到历史
+  saveResultToHistory(data);
+
   // 更新导出提示
   updateExportHints();
 
@@ -916,6 +1143,10 @@ function parseReportText(text) {
 // 开始调研（提交+轮询模式）
 // ═══════════════════════════════════════
 async function startResearch() {
+  // ── 免费试用次数检查 ──
+  const canProceed = await checkUsageAndPrompt();
+  if (!canProceed) return;
+
   const reportText = document.getElementById('reportText')?.value?.trim();
   if (!reportText) {
     alert('请先粘贴用户报告文本');
@@ -929,6 +1160,12 @@ async function startResearch() {
   } catch (err) {
     alert('解析失败：' + err.message);
     return;
+  }
+
+  // 附带用户 API Key（如有）
+  const userKey = getUserApiKeyForRequest();
+  if (userKey) {
+    userData.user_api_key = userKey;
   }
 
   // 显示加载状态
@@ -999,6 +1236,7 @@ async function startResearch() {
           if (pollData.result.user_name) {
             currentResearchUser = pollData.result.user_name;
           }
+          incrementUsage();
           renderResearchResults(pollData.result);
           return;
         }
@@ -1106,6 +1344,9 @@ function renderResearchResults(data) {
   } else {
     summaryArea.style.display = 'none';
   }
+
+  // 缓存到历史
+  saveResultToHistory(data);
 
   // 更新导出提示
   updateExportHints();

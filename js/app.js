@@ -70,6 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   // 初始化时也跑一遍
   updateProgress();
+  updateExportHints();
 
   // 自动恢复上次草稿（新开页面不用重新填）
   try {
@@ -692,6 +693,9 @@ function renderResults(data) {
     summaryArea.style.display = 'none';
   }
 
+  // 更新导出提示
+  updateExportHints();
+
   // 滚动到结果区
   document.getElementById('resultArea').scrollIntoView({ behavior: 'smooth' });
 }
@@ -1103,6 +1107,9 @@ function renderResearchResults(data) {
     summaryArea.style.display = 'none';
   }
 
+  // 更新导出提示
+  updateExportHints();
+
   // 滚动到结果区
   area.scrollIntoView({ behavior: 'smooth' });
 }
@@ -1213,16 +1220,13 @@ function getAlias() {
 }
 
 /** 🖨 打印 PDF — 打开浏览器打印对话框，选「另存为 PDF」 */
-function printToPDF() {
-  const alias = getAlias();
-  const title = alias ? `赛赋-调研报告-${alias}` : '赛赋-调研报告';
-  document.title = title;
-  window.print();
+/** 判断是否为移动设备 */
+function isMobile() {
+  return /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || window.innerWidth < 768;
 }
 
-/** 💾 保存 HTML — 抓取当前可见的结果区内容，构建独立 HTML 文件并下载 */
-function saveAsHTML() {
-  // 判断当前显示的是哪个结果区
+/** 构建独立 HTML 报告（提取结果内容 + CSS） */
+function buildStandaloneHTML(autoPrint) {
   let resultArea = document.getElementById('resultArea');
   let researchArea = document.getElementById('researchResultArea');
 
@@ -1232,12 +1236,10 @@ function saveAsHTML() {
   } else if (resultArea && resultArea.style.display !== 'none') {
     resultContent = resultArea.innerHTML;
   } else {
-    showToast('没有可保存的内容');
-    return;
+    return null;
   }
 
   const alias = getAlias();
-  const fileName = alias ? `赛赋-调研报告-${alias}.html` : '赛赋-调研报告.html';
   const titleText = alias ? `赛赋 SaiFu · 竞赛调研报告 — ${alias}` : '赛赋 SaiFu · 竞赛调研报告';
 
   // ── 收集所有生效的 CSS ──
@@ -1252,27 +1254,34 @@ function saveAsHTML() {
             allCSS += rule.cssText + '\n';
           }
         }
-      } catch (e) {
-        // 跨域或不可读的 stylesheet，跳过
-      }
+      } catch (e) { /* 跨域跳过 */ }
     }
-  } catch (e) { /* 某些浏览器可能不支持遍历 */ }
+  } catch (e) {}
 
   // 2. 收集页面上所有 <style> 标签
   document.querySelectorAll('style').forEach(style => {
     allCSS += style.textContent + '\n';
   });
 
-  // ── 构建独立 HTML ──
-  const standaloneHTML = `<!DOCTYPE html>
+  // 3. 独立页面隐藏导出按钮 + 返回按钮，避免重复
+  allCSS += `
+    .export-buttons, .export-hint, .back-bar, .btn-contact,
+    .navbar, .tab-bar, .match-btn-wrap, .toast, .progress-wrap { display: none !important; }
+    body { padding: 16px; }
+  `;
+
+  const printScript = autoPrint
+    ? '<script>window.onload=function(){setTimeout(function(){window.print();},600);}<\/script>'
+    : '';
+
+  return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${titleText}</title>
-<style>
-${allCSS}
-</style>
+<style>${allCSS}</style>
+${printScript}
 </head>
 <body>
 <div class="container">
@@ -1283,17 +1292,62 @@ ${JSON.stringify(collectProfile(), null, 2)}
 <\/script>
 </body>
 </html>`;
+}
 
-  // ── 触发下载 ──
-  const blob = new Blob([standaloneHTML], { type: 'text/html;charset=UTF-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = fileName;
-  a.click();
-  URL.revokeObjectURL(url);
+/** 🖨 打印 PDF — 桌面调用系统打印，手机在新标签页打开并自动弹出打印 */
+function printToPDF() {
+  if (isMobile()) {
+    const html = buildStandaloneHTML(true);
+    if (!html) { showToast('没有可打印的内容'); return; }
+    const blob = new Blob([html], { type: 'text/html;charset=UTF-8' });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
+    showToast('正在新窗口打开，请使用浏览器分享 → 打印/保存PDF');
+  } else {
+    const alias = getAlias();
+    document.title = alias ? `赛赋-调研报告-${alias}` : '赛赋-调研报告';
+    window.print();
+  }
+}
 
-  showToast('报告已保存 ✅');
+/** 💾 保存 HTML — 桌面下载文件，手机在新标签页打开查看 */
+function saveAsHTML() {
+  const html = buildStandaloneHTML(false);
+  if (!html) { showToast('没有可保存的内容'); return; }
+
+  if (isMobile()) {
+    // 手机端：新标签页打开（浏览器原生渲染，可分享/打印/截图）
+    const blob = new Blob([html], { type: 'text/html;charset=UTF-8' });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
+    showToast('报告已在新窗口打开 ✅');
+  } else {
+    // 桌面端：下载文件
+    const alias = getAlias();
+    const fileName = alias ? `赛赋-调研报告-${alias}.html` : '赛赋-调研报告.html';
+    const blob = new Blob([html], { type: 'text/html;charset=UTF-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('报告已保存 ✅');
+  }
+}
+
+/** 根据设备更新导出按钮提示文字 */
+function updateExportHints() {
+  const mobile = isMobile();
+  const hint = mobile
+    ? '💡 点击按钮在新窗口查看报告，可用浏览器「分享 → 打印」保存为 PDF'
+    : '💡 推荐「打印 PDF」存档至本地，「保存 HTML」下载离线查看';
+  const h1 = document.getElementById('exportHint1');
+  const h2 = document.getElementById('exportHint2');
+  if (h1) h1.textContent = hint;
+  if (h2) h2.textContent = hint;
 }
 
 // ═══════════════════════════════════════

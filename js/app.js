@@ -165,12 +165,48 @@ function clearForm() {
 function toggleOther(wrapId) {
   const wrap = document.getElementById(wrapId + '-wrap');
   if (!wrap) return;
-  const cb = document.querySelector(`input[name="${wrapId.replace('-wrap', '')}"][value="__OTHER__"]`);
+  // wrapId 格式为 "{name}-other"，提取原始 checkbox name（如 "interests-other" → "interests"）
+  const name = wrapId.replace(/-other$/, '');
+  const cb = document.querySelector(`input[name="${name}"][value="__OTHER__"]`);
   if (cb && cb.checked) {
     wrap.classList.add('show');
     wrap.querySelector('input')?.focus();
   } else {
     wrap.classList.remove('show');
+  }
+}
+
+/** 技能标签搜索过滤 */
+function filterSkillTags() {
+  const filter = document.getElementById('skill-filter');
+  if (!filter) return;
+  const q = filter.value.trim().toLowerCase();
+  const items = document.querySelectorAll('#tech-direction-group .option-item');
+  let visibleCount = 0;
+  items.forEach(item => {
+    // 始终显示"其他"选项和已选中的标签
+    const cb = item.querySelector('input');
+    const isOther = cb && cb.value === '__OTHER__';
+    const isChecked = cb && cb.checked;
+    if (!q || isOther || isChecked) {
+      item.classList.remove('skill-hidden');
+      visibleCount++;
+      return;
+    }
+    // 匹配标签文字或 data-skill-keywords
+    const keywords = (item.dataset.skillKeywords || '').toLowerCase();
+    const label = item.querySelector('.option-tag')?.textContent?.toLowerCase() || '';
+    if (label.includes(q) || keywords.includes(q)) {
+      item.classList.remove('skill-hidden');
+      visibleCount++;
+    } else {
+      item.classList.add('skill-hidden');
+    }
+  });
+  // 无匹配提示
+  const noMatch = document.getElementById('no-skill-match');
+  if (noMatch) {
+    noMatch.classList.toggle('show', visibleCount <= 1 && q); // <=1 因为"其他"始终可见
   }
 }
 

@@ -430,3 +430,72 @@ def match_competitions(profile: dict) -> dict:
         "tips": TIPS,
         "myths": MYTHS,
     }
+
+
+def generate_personal_summary(profile: dict, top_matches: list) -> dict:
+    """基于用户画像和匹配结果，生成个性化总结（备赛建议、风险提示、总体评估）。
+
+    Args:
+        profile: 用户画像 dict
+        top_matches: 前 N 个匹配竞赛列表
+
+    Returns:
+        {"advice": {...}, "risks": [...], "summary": "..."}
+    """
+    profile_text = _build_profile_text(profile)
+
+    # 构建前5个匹配竞赛摘要
+    match_text = ""
+    for i, m in enumerate(top_matches[:5]):
+        m_name = m.get("name", "未知竞赛")
+        m_score = m.get("match_score", "?")
+        m_reason = m.get("match_reason", "")
+        match_text += f"{i+1}. {m_name} (匹配度:{m_score}%)\n"
+        match_text += f"   理由: {m_reason}\n\n"
+    if not match_text:
+        match_text = "暂未匹配到高适配竞赛"
+
+    prompt = f"""基于以下用户画像和竞赛匹配结果，生成一份个性化的备赛总结。
+
+{profile_text}
+
+## 匹配到的竞赛
+{match_text}
+
+请返回严格的 JSON（不要其他文字）：
+{{
+  "advice": {{
+    "time_plan": "基于用户空闲月份和年级，给出具体的时间规划建议（100-150字）",
+    "skill_improvement": "基于用户当前技能，指出需要补强的方向（100-150字）",
+    "team_strategy": "基于用户情况和匹配竞赛特点，给出组队建议（100-150字）"
+  }},
+  "risks": [
+    {{"type": "风险类型（如：时间冲突、技能缺口、报名门槛）", "detail": "具体描述", "solution": "应对方案"}}
+  ],
+  "summary": "一段话总结该用户的竞赛适配方向和整体建议（150字内）"
+}}
+
+要求：
+- risks 至少1条，最多3条，要结合用户实际画像
+- 建议要具体实用，不能泛泛而谈
+- summary 要结合用户的专业和匹配到的竞赛来写
+- 如果用户某方面信息缺失（如未填学校），不要编造，用"建议补充XX信息"代替"""
+
+    try:
+        result = call_deepseek_json(
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return result
+    except Exception:
+        # LLM 调用失败时返回默认值
+        return {
+            "advice": {
+                "time_plan": "建议根据竞赛报名时间提前3-6个月规划，合理分配每周学习时间。",
+                "skill_improvement": "建议针对目标竞赛的要求，针对性地提升相关技能。",
+                "team_strategy": "建议寻找优势互补的队友，根据竞赛要求提前组建团队。",
+            },
+            "risks": [
+                {"type": "信息缺失", "detail": "部分画像信息不完整，可能影响匹配精度", "solution": "建议补充完整的个人信息以获得更精准的推荐"}
+            ],
+            "summary": "基于您的画像，系统已为您匹配到合适的竞赛。建议结合个人时间安排和兴趣方向，优先选择匹配度高的竞赛参与。",
+        }

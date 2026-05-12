@@ -644,10 +644,53 @@ function renderResults(data) {
   tipsHtml += '<div class="platform-note" style="margin-top:16px">⚡ 本平台由 AI 驱动，信息来自网络搜索+内置竞赛知识库，报名前请到官网核实！</div>';
   tipsArea.innerHTML = tipsHtml;
 
-  // 添加平台技术说明
-  document.getElementById('resultArea').insertAdjacentHTML('beforeend',
-    '<div class="platform-note">🏗️ 赛赋 SaiFu | AI驱动 · 常识库校验 · 多源交叉验证 | Powered by DeepSeek</div>'
-  );
+  // ── 备赛建议 ──
+  const advice = data.advice || {};
+  const adviceSection = document.getElementById('adviceSection');
+  const adviceDiv = document.getElementById('adviceArea');
+  if (advice.time_plan || advice.skill_improvement || advice.team_strategy) {
+    adviceSection.style.display = 'block';
+    let adviceHtml = '';
+    if (advice.time_plan) {
+      adviceHtml += '<h3>⏰ 时间规划</h3><p style="margin-bottom:16px;white-space:pre-wrap;">' + escHtml(advice.time_plan) + '</p>';
+    }
+    if (advice.skill_improvement) {
+      adviceHtml += '<h3>📚 技能补强</h3><p style="margin-bottom:16px;white-space:pre-wrap;">' + escHtml(advice.skill_improvement) + '</p>';
+    }
+    if (advice.team_strategy) {
+      adviceHtml += '<h3>👥 组队策略</h3><p style="white-space:pre-wrap;">' + escHtml(advice.team_strategy) + '</p>';
+    }
+    adviceDiv.innerHTML = adviceHtml;
+  } else {
+    adviceSection.style.display = 'none';
+  }
+
+  // ── 风险提示 ──
+  const risks = data.risks || [];
+  const risksSection = document.getElementById('risksSection');
+  const risksDiv = document.getElementById('risksArea');
+  if (risks.length > 0) {
+    risksSection.style.display = 'block';
+    risksDiv.innerHTML = risks.map(r => {
+      return '<div class="risk-item">' +
+        '<div class="risk-type">⚠ ' + escHtml(r.type || '潜在风险') + '</div>' +
+        '<div class="risk-detail">' + escHtml(r.detail || '') + '</div>' +
+        '<div class="risk-solution">💡 应对：' + escHtml(r.solution || '') + '</div>' +
+        '</div>';
+    }).join('');
+  } else {
+    risksSection.style.display = 'none';
+  }
+
+  // ── 总结 ──
+  const summaryArea = document.getElementById('summaryArea');
+  if (data.summary) {
+    summaryArea.style.display = 'block';
+    summaryArea.innerHTML = '<h3>📋 总体评估</h3><p style="white-space:pre-wrap;">' + escHtml(data.summary) + '</p>' +
+      '<div class="platform-note" style="margin-top:16px">🏗️ 赛赋 SaiFu | AI驱动 · 常识库校验 · 多源交叉验证 | Powered by DeepSeek</div>';
+  } else {
+    summaryArea.style.display = 'none';
+  }
 
   // 滚动到结果区
   document.getElementById('resultArea').scrollIntoView({ behavior: 'smooth' });

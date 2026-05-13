@@ -16,6 +16,7 @@ from config import LLM_API_KEY, SAIFU_ENABLED, ADMIN_HASH
 from services.knowledge_base import COMPETITION_FACTS
 from services.research import run_research
 from services.ai_client import ServerAPIExhausted
+from services.budget import get_budget_status, is_bankrupt
 
 app = FastAPI(title="赛赋 SaiFu - 智能竞赛匹配平台", version="1.0.0")
 
@@ -122,11 +123,19 @@ class TargetResearchInput(BaseModel):
 @app.get("/api/health")
 async def health():
     """健康检查端点。"""
+    budget = get_budget_status()
     return {
         "status": "ok",
         "llm_configured": bool(LLM_API_KEY),
         "public_enabled": SAIFU_ENABLED,
+        "budget": budget,
     }
+
+
+@app.get("/api/budget")
+async def budget_status():
+    """查询服务端 API 预算状态。"""
+    return get_budget_status()
 
 
 @app.get("/api/competitions")

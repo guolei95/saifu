@@ -1,0 +1,21 @@
+# Vercel 忽略文件 — 这些不需要推送到部署环境
+# 后端代码（Render 单独部署）
+backend/
+# 测试文件
+test_*.py
+test_*.json
+test_*.md
+dedup_results.json
+# 日志和临时文件
+*.log
+*.txt
+# 文档（非必要）
+*.md
+# 图片（保留 images/ 文件夹，不忽略）
+# GitHub Actions
+.github/
+# Python 缓存
+__pycache__/
+*.pyc
+# 环境变量
+.env

@@ -10,6 +10,21 @@ const API_BASE_URL = window.location.hostname === 'localhost'
   ? 'http://localhost:8000'
   : 'https://saifu-backend-pk86.onrender.com';
 
+// 管理员维护模式 bypass 令牌（SHA256(xiaolei0207)，与服务端一致）
+const ADMIN_HASH = 'fea2b9dcfc927a0c9d6fad5781f64b60754dce0ea76bbeca9eac202c553b049f';
+
+/** 带管理员 bypass 头的 fetch 封装 */
+function apiFetch(url, options = {}) {
+  const opts = { ...options };
+  if (isAdmin()) {
+    opts.headers = { ...(opts.headers || {}), 'x-saifu-admin': ADMIN_HASH };
+  }
+  if (opts.body && typeof opts.body === 'string') {
+    opts.headers = { ...(opts.headers || {}), 'Content-Type': 'application/json' };
+  }
+  return fetch(url, opts);
+}
+
 const MATCH_TIMEOUT = 300000; // 300 秒超时（搜索+多轮AI调用需要时间）
 
 // ═══════════════════════════════════════
@@ -51,13 +66,35 @@ function isAdmin() {
   try { return localStorage.getItem(STORAGE_KEY_ADMIN) === '1'; } catch (e) { return false; }
 }
 
-// 页面加载时显示管理员标识
-(function showAdminBadge() {
+// 页面加载时显示管理员标识 + 维护模式检测
+(async function initPublicCheck() {
+  // 管理员标识
   if (isAdmin()) {
     const badge = document.getElementById('adminBadge');
     if (badge) badge.style.display = 'inline-block';
   }
+  // 维护模式检测
+  try {
+    const resp = await fetch(API_BASE_URL + '/api/health');
+    const health = await resp.json();
+    if (health.public_enabled === false && !isAdmin()) {
+      showMaintenanceOverlay();
+    }
+  } catch (e) {
+    // 健康检查失败时忽略（可能是网络问题），不阻塞正常使用
+  }
 })();
+
+/** 显示维护模式遮罩 */
+function showMaintenanceOverlay() {
+  const overlay = document.getElementById('maintenanceOverlay');
+  if (overlay) overlay.style.display = 'flex';
+  // 隐藏主内容
+  const container = document.querySelector('.container');
+  if (container) container.style.display = 'none';
+  const navbar = document.querySelector('.navbar');
+  if (navbar) navbar.style.display = 'none';
+}
 
 function getUsageCount() {
   try { return parseInt(localStorage.getItem(STORAGE_KEY_USAGE) || '0', 10); } catch (e) { return 0; }
@@ -998,7 +1035,7 @@ async function startTargetResearch() {
   setTimeout(() => { if (stage4) stage4.classList.add('active'); }, 18000);
 
   try {
-    const submitResp = await fetch(API_BASE_URL + '/api/target-research', {
+    const submitResp = await apiFetch(API_BASE_URL + '/api/target-research', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(profile),
@@ -1021,7 +1058,7 @@ async function startTargetResearch() {
       pollCount++;
 
       try {
-        const pollResp = await fetch(API_BASE_URL + '/api/target-research/' + taskId);
+        const pollResp = await apiFetch(API_BASE_URL + '/api/target-research/' + taskId);
         if (!pollResp.ok) continue;
 
         const pollData = await pollResp.json();
@@ -1103,7 +1140,7 @@ async function startMatch() {
 
   try {
     // 第1步：提交匹配任务（快速返回 task_id）
-    const submitResp = await fetch(API_BASE_URL + '/api/match', {
+    const submitResp = await apiFetch(API_BASE_URL + '/api/match', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(profile),
@@ -1130,7 +1167,7 @@ async function startMatch() {
       pollCount++;
 
       try {
-        const pollResp = await fetch(API_BASE_URL + '/api/match/' + taskId);
+        const pollResp = await apiFetch(API_BASE_URL + '/api/match/' + taskId);
         if (!pollResp.ok) continue;
 
         const pollData = await pollResp.json();
@@ -1680,7 +1717,7 @@ async function startResearch() {
 
   try {
     // 提交调研任务
-    const submitResp = await fetch(API_BASE_URL + '/api/import-and-research', {
+    const submitResp = await apiFetch(API_BASE_URL + '/api/import-and-research', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ user_data: userData }),
@@ -1707,7 +1744,7 @@ async function startResearch() {
       pollCount++;
 
       try {
-        const pollResp = await fetch(API_BASE_URL + '/api/import-and-research/' + taskId);
+        const pollResp = await apiFetch(API_BASE_URL + '/api/import-and-research/' + taskId);
         if (!pollResp.ok) continue;
 
         const pollData = await pollResp.json();

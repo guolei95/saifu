@@ -2,7 +2,7 @@
 赛赋(SaiFu) FastAPI 应用入口 — 提供 Web API。
 采用提交+轮询模式处理长时匹配任务，避免 Cloudflare Tunnel 断连。
 """
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
@@ -12,7 +12,7 @@ import uuid
 from datetime import datetime
 
 from match.engine import match_competitions, generate_personal_summary
-from config import LLM_API_KEY
+from config import LLM_API_KEY, SAIFU_ENABLED, ADMIN_HASH
 from services.knowledge_base import COMPETITION_FACTS
 from services.research import run_research
 from services.ai_client import ServerAPIExhausted
@@ -28,6 +28,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── 维护模式守卫 ──
+async def _require_public_or_admin(request: Request):
+    """如果 SAIFU_ENABLED=false，仅允许带有效 x-saifu-admin 头的请求通过。"""
+    if SAIFU_ENABLED:
+        return
+    admin_header = request.headers.get("x-saifu-admin", "")
+    if admin_header != ADMIN_HASH:
+        raise HTTPException(status_code=503, detail="网站维护中，仅管理员可访问")
 
 # ── 任务存储（内存中）──
 tasks: dict = {}  # task_id -> {"status": "queued"|"processing"|"done"|"error", "result": ..., "created_at": ..., "queue_position": N, "error": ...}
@@ -116,6 +125,7 @@ async def health():
     return {
         "status": "ok",
         "llm_configured": bool(LLM_API_KEY),
+        "public_enabled": SAIFU_ENABLED,
     }
 
 
@@ -151,11 +161,12 @@ async def list_competitions():
 
 
 @app.post("/api/match")
-async def start_match(profile: ProfileInput):
+async def start_match(profile: ProfileInput, request: Request):
     """提交匹配任务 — 立即返回 task_id，后台异步处理。
 
     前端用 task_id 轮询 GET /api/match/{task_id} 获取结果。
     """
+    await _require_public_or_admin(request)
     task_id = str(uuid.uuid4())[:8]
     now = datetime.now().isoformat()
     tasks[task_id] = {
@@ -281,11 +292,12 @@ async def _run_match(task_id: str, profile_dict: dict):
 # ── 定期清理过期任务 ──
 # ── 导入调研 API ──
 @app.post("/api/import-and-research")
-async def start_import_research(body: ImportResearchInput):
+async def start_import_research(body: ImportResearchInput, request: Request):
     """导入用户报告 + 发起调研 — 立即返回 task_id，后台异步处理。
 
     前端用 task_id 轮询 GET /api/import-and-research/{task_id} 获取调研结果。
     """
+    await _require_public_or_admin(request)
     task_id = "research_" + str(uuid.uuid4())[:8]
     tasks[task_id] = {
         "status": "processing",
@@ -391,11 +403,12 @@ async def _run_import_research(task_id: str, user_data: dict):
 
 # ── 定向调研 API（知道比赛名称 → 深度分析）──
 @app.post("/api/target-research")
-async def start_target_research(body: TargetResearchInput):
+async def start_target_research(body: TargetResearchInput, request: Request):
     """提交定向调研任务 — 立即返回 task_id，后台异步处理。
 
     用户知道比赛名称，填写简化画像后，AI 查找该比赛详情并生成个性化备赛规划。
     """
+    await _require_public_or_admin(request)
     task_id = "target_" + str(uuid.uuid4())[:8]
     tasks[task_id] = {
         "status": "processing",

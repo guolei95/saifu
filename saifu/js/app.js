@@ -204,11 +204,52 @@ function submitApiKey() {
   hideApiKeyModal(false);
 }
 
-/** 清除已保存的密钥 */
+/** 清除已保存的密钥 + 清空表单 */
 function clearApiKey() {
-  if (!confirm('确定要清除已保存的 API 密钥吗？')) return;
   clearUserLLMConfig();
-  alert('已清除，下次将使用免费次数。');
+  // 清空表单字段
+  const keyInput = document.getElementById('apiKeyInput');
+  const baseInput = document.getElementById('apiKeyBaseUrl');
+  const modelInput = document.getElementById('apiKeyModel');
+  const providerSel = document.getElementById('apiKeyProvider');
+  if (keyInput) { keyInput.value = ''; keyInput.type = 'password'; }
+  if (baseInput) baseInput.value = LLM_PROVIDERS.deepseek.base_url;
+  if (modelInput) modelInput.value = LLM_PROVIDERS.deepseek.model;
+  if (providerSel) providerSel.value = 'deepseek';
+  // 更新眼睛图标
+  const eyeBtn = document.querySelector('.api-key-eye');
+  if (eyeBtn) eyeBtn.textContent = '👁️';
+  // 轻提示
+  showToast('已清除密钥，将使用免费次数。');
+}
+
+/** 切换 API Key 显示/隐藏 */
+function toggleApiKeyVisibility() {
+  const input = document.getElementById('apiKeyInput');
+  const eyeBtn = document.querySelector('.api-key-eye');
+  if (!input) return;
+  if (input.type === 'password') {
+    input.type = 'text';
+    if (eyeBtn) eyeBtn.textContent = '🔒';
+  } else {
+    input.type = 'password';
+    if (eyeBtn) eyeBtn.textContent = '👁️';
+  }
+}
+
+/** 轻量 toast 提示 */
+function showToast(msg) {
+  let toast = document.getElementById('toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'toast';
+    toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 24px;border-radius:20px;font-size:13px;z-index:9999;opacity:0;transition:opacity 0.3s;pointer-events:none;';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.style.opacity = '1';
+  clearTimeout(toast._tid);
+  toast._tid = setTimeout(() => { toast.style.opacity = '0'; }, 2000);
 }
 // ═══════════════════════════════════════
 // 免费试用次数限制 — 模块结束

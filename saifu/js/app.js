@@ -50,6 +50,15 @@ const LLM_PROVIDERS = {
 function isAdmin() {
   try { return localStorage.getItem(STORAGE_KEY_ADMIN) === '1'; } catch (e) { return false; }
 }
+
+// 页面加载时显示管理员标识
+(function showAdminBadge() {
+  if (isAdmin()) {
+    const badge = document.getElementById('adminBadge');
+    if (badge) badge.style.display = 'inline-block';
+  }
+})();
+
 function getUsageCount() {
   try { return parseInt(localStorage.getItem(STORAGE_KEY_USAGE) || '0', 10); } catch (e) { return 0; }
 }

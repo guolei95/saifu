@@ -85,11 +85,12 @@ def call_deepseek(messages, temperature=None, max_tokens=None, api_key=None, api
         return resp.choices[0].message.content.strip()
     except Exception as e:
         error_str = str(e).lower()
-        # 识别额度/余额/付费相关错误
+        # 识别额度/余额/付费相关错误 + 鉴权失败
         bankrupt_keywords = [
             'insufficient', 'balance', 'quota', 'billing', 'exhausted',
-            '402', 'payment', '充值', '余额不足', '欠费', 'rate limit',
-            'rate_limit', 'too many requests',
+            '402', '401', 'payment', '充值', '余额不足', '欠费', 'rate limit',
+            'rate_limit', 'too many requests', 'authentication', 'invalid',
+            'invalid_request_error', 'api key',
         ]
         if any(kw in error_str for kw in bankrupt_keywords):
             raise ServerAPIExhausted(

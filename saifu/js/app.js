@@ -22,10 +22,10 @@ const STORAGE_KEY_ADMIN = 'saifu_is_admin';
 
 // ── 平台预设 ──
 const LLM_PROVIDERS = {
-  deepseek: { name: 'DeepSeek', base_url: 'https://api.deepseek.com/v1', model: 'deepseek-chat' },
-  doubao:   { name: '火山引擎（豆包）', base_url: 'https://ark.cn-beijing.volces.com/api/v3', model: 'doubao-seed-2-0-lite-260428' },
-  openai:   { name: 'OpenAI', base_url: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
-  custom:   { name: '自定义', base_url: '', model: '' },
+  deepseek: { name: 'DeepSeek', base_url: 'https://api.deepseek.com/v1', model: 'deepseek-chat', cost: '≈ ¥0.02/次' },
+  doubao:   { name: '火山引擎（豆包）', base_url: 'https://ark.cn-beijing.volces.com/api/v3', model: 'doubao-seed-2-0-lite-260428', cost: '≈ ¥0.02/次' },
+  openai:   { name: 'OpenAI', base_url: 'https://api.openai.com/v1', model: 'gpt-4o-mini', cost: '≈ ¥0.50/次' },
+  custom:   { name: '自定义', base_url: '', model: '', cost: '未知' },
 };
 
 // ── 管理员后门 ──
@@ -61,6 +61,35 @@ function isAdmin() {
 
 function getUsageCount() {
   try { return parseInt(localStorage.getItem(STORAGE_KEY_USAGE) || '0', 10); } catch (e) { return 0; }
+}
+
+/** 获取当前生效的模型信息（name + 预估费用） */
+function getActiveModelInfo() {
+  if (isAdmin()) {
+    // 管理员走服务器默认
+    return { name: 'DeepSeek (服务器)', cost: '免费（管理员）' };
+  }
+  const count = getUsageCount();
+  if (count < FREE_LIMIT) {
+    return { name: 'DeepSeek (服务器)', cost: `免费试用 (${count}/${FREE_LIMIT})` };
+  }
+  const cfg = getUserLLMConfig();
+  if (cfg) {
+    const provider = cfg.provider || 'custom';
+    const preset = LLM_PROVIDERS[provider];
+    const modelName = cfg.model || (preset ? preset.model : '自定义模型');
+    const cost = preset ? preset.cost : '未知';
+    return { name: `${modelName} (你的密钥)`, cost: cost };
+  }
+  return { name: 'DeepSeek (服务器)', cost: '≈ ¥0.02/次' };
+}
+
+/** 更新加载区模型信息提示 */
+function updateLoadingModelInfo() {
+  const el = document.getElementById('loadingModelInfo');
+  if (!el) return;
+  const info = getActiveModelInfo();
+  el.textContent = '🧠 ' + info.name + ' ｜ 💰 ' + info.cost;
 }
 function incrementUsage() {
   if (isAdmin()) return;
@@ -946,6 +975,7 @@ async function startTargetResearch() {
   document.getElementById('errorArea').style.display = 'none';
   document.getElementById('loadingArea').style.display = 'block';
   document.getElementById('loadingArea').scrollIntoView({ behavior: 'smooth' });
+  updateLoadingModelInfo();
 
   // 更新加载步骤文字
   const stage1 = document.getElementById('loadStep1');
@@ -1061,6 +1091,7 @@ async function startMatch() {
   document.getElementById('errorArea').style.display = 'none';
   document.getElementById('loadingArea').style.display = 'block';
   document.getElementById('loadingArea').scrollIntoView({ behavior: 'smooth' });
+  updateLoadingModelInfo();
 
   // 禁用按钮
   const btn = document.getElementById('btnMatch');
@@ -1350,9 +1381,11 @@ function renderResults(data) {
   // ── 总结 ──
   const summaryArea = document.getElementById('summaryArea');
   if (data.summary) {
+    var modelInfo = getActiveModelInfo();
     summaryArea.style.display = 'block';
     summaryArea.innerHTML = '<h3>📋 总体评估</h3><p style="white-space:pre-wrap;">' + escHtml(data.summary) + '</p>' +
-      '<div class="platform-note" style="margin-top:16px">🏗️ 赛赋 SaiFu | AI驱动 · 常识库校验 · 多源交叉验证 | Powered by DeepSeek</div>';
+      '<div class="platform-note" style="margin-top:16px">🏗️ 赛赋 SaiFu | AI驱动 · 常识库校验 · 多源交叉验证</div>' +
+      '<div class="cost-note">🧠 本次调用：' + escHtml(modelInfo.name) + ' ｜ 💰 预估费用：' + escHtml(modelInfo.cost) + '</div>';
   } else {
     summaryArea.style.display = 'none';
   }
@@ -1624,6 +1657,7 @@ async function startResearch() {
   document.getElementById('errorArea').style.display = 'none';
   document.getElementById('loadingArea').style.display = 'block';
   document.getElementById('loadingArea').scrollIntoView({ behavior: 'smooth' });
+  updateLoadingModelInfo();
 
   // 更新加载提示
   const stage1 = document.getElementById('loadStep1');

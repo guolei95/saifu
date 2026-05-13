@@ -180,6 +180,7 @@ input[type="text"]:focus, select:focus, textarea:focus {
 @keyframes spin { to { transform: rotate(360deg); } }
 .loading-card h3 { font-size: 18px; margin-bottom: 20px; color: var(--text); }
 .loading-steps { text-align: left; max-width: 360px; margin: 0 auto 16px; }
+.loading-model-info { font-size: 12px; color: var(--text-secondary); margin: -12px 0 12px; }
 .load-step {
   padding: 8px 0; font-size: 14px; color: var(--text-secondary);
   transition: all 0.3s;
@@ -272,6 +273,13 @@ input[type="text"]:focus, select:focus, textarea:focus {
   background: #fff; border-radius: var(--radius); padding: 14px 20px;
   box-shadow: var(--shadow); margin-top: 16px; text-align: center;
   font-size: 12px; color: var(--text-secondary);
+}
+/* 调用成本提示 */
+.cost-note {
+  text-align: center; font-size: 12px; color: var(--accent);
+  margin-top: 8px; padding: 6px 14px;
+  background: var(--accent-light); border-radius: 6px;
+  display: inline-block; margin-left: auto; margin-right: auto; width: fit-content;
 }
 
 /* ── 响应式：平板 ── */

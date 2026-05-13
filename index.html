@@ -814,6 +814,7 @@ textarea { resize: vertical; min-height: 60px; }
     <div class="loading-card">
       <div class="spinner"></div>
       <h3>AI 正在搜索和匹配竞赛...</h3>
+      <p class="loading-model-info" id="loadingModelInfo"></p>
       <div class="loading-steps">
         <div class="load-step" id="loadStep1">• 正在生成搜索关键词...</div>
         <div class="load-step" id="loadStep2">• 正在搜索最新竞赛信息...</div>
@@ -975,6 +976,7 @@ textarea { resize: vertical; min-height: 60px; }
         <span class="platform-bonus">需绑卡充值</span>
       </a>
     </div>
+    <div class="api-key-cost-ref">💰 每次匹配预估费用：DeepSeek ≈ ¥0.02 ｜ 豆包 ≈ ¥0.02 ｜ OpenAI ≈ ¥0.50</div>
 
     <!-- 信任保障 -->
     <div class="api-key-trust">
@@ -1089,7 +1091,8 @@ textarea { resize: vertical; min-height: 60px; }
   border: 1px solid rgba(255,255,255,0.3);
 }
 /* 平台注册卡片 */
-.api-key-platforms { display: flex; gap: 8px; margin-top: 6px; margin-bottom: 8px; }
+.api-key-platforms { display: flex; gap: 8px; margin-top: 6px; margin-bottom: 4px; }
+.api-key-cost-ref { font-size: 11px; color: #999; text-align: center; margin-bottom: 8px; }
 .platform-card {
   flex: 1; border: 1px solid var(--border); border-radius: 8px; padding: 8px;
   text-decoration: none; color: var(--text-main); transition: border 0.2s;

@@ -149,7 +149,7 @@ textarea { resize: vertical; min-height: 60px; }
 <!-- 顶部导航栏 -->
 <nav class="navbar">
   <div class="nav-inner">
-    <a href="#" class="nav-brand">🏆 赛赋 SaiFu</a>
+    <a href="#" class="nav-brand">🏆 赛赋 SaiFu <span class="admin-badge" id="adminBadge" style="display:none;">👑 管理员</span></a>
     <span class="nav-tag">智能竞赛匹配 · 覆盖全学科</span>
     <button class="btn btn-ghost btn-sm btn-key-settings" onclick="openApiKeySettings()" title="设置自己的 API 密钥">🔑 设置密钥</button>
     <button class="btn btn-primary btn-contact" onclick="showContactModal()">📩 联系我</button>
@@ -1080,6 +1080,14 @@ textarea { resize: vertical; min-height: 60px; }
 /* 设置密钥按钮 — 紫色导航栏上需要可见底色 */
 .btn-key-settings { margin-left: auto; margin-right: 6px; background: rgba(255,255,255,0.2); color: #fff; border: 1px solid rgba(255,255,255,0.35); }
 .btn-key-settings:hover { background: rgba(255,255,255,0.35); color: #fff; }
+/* 管理员标识 */
+.admin-badge {
+  display: inline-block; font-size: 10px; font-weight: 600;
+  background: rgba(255,255,255,0.25); color: #fff;
+  padding: 2px 8px; border-radius: 10px; margin-left: 6px;
+  vertical-align: middle; letter-spacing: 0.5px;
+  border: 1px solid rgba(255,255,255,0.3);
+}
 /* 平台注册卡片 */
 .api-key-platforms { display: flex; gap: 8px; margin-top: 6px; margin-bottom: 8px; }
 .platform-card {

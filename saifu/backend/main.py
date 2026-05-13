@@ -16,7 +16,7 @@ from config import LLM_API_KEY, SAIFU_ENABLED, ADMIN_HASH
 from services.knowledge_base import COMPETITION_FACTS
 from services.research import run_research
 from services.ai_client import ServerAPIExhausted
-from services.budget import get_budget_status, is_bankrupt
+from services.budget import get_budget_status, is_bankrupt, call_ctx_type, call_ctx_admin, get_analytics
 
 app = FastAPI(title="赛赋 SaiFu - 智能竞赛匹配平台", version="1.0.0")
 
@@ -138,6 +138,19 @@ async def budget_status():
     return get_budget_status()
 
 
+@app.get("/api/admin/analytics")
+async def admin_analytics(request: Request):
+    """管理员专用：查看完整使用分析数据。
+
+    需要在请求头携带 x-saifu-admin 密钥。
+    返回：总调用次数/费用、按类型/角色/天分类统计、最近调用记录。
+    """
+    admin_header = request.headers.get("x-saifu-admin", "")
+    if admin_header != ADMIN_HASH:
+        raise HTTPException(status_code=403, detail="仅管理员可访问")
+    return get_analytics()
+
+
 @app.get("/api/competitions")
 async def list_competitions():
     """返回84项A类竞赛知识库。"""
@@ -187,8 +200,14 @@ async def start_match(profile: ProfileInput, request: Request):
 
     profile_dict = profile.model_dump()
 
+    # 判断是否管理员 & 设置调用上下文（自动传递到后台任务）
+    admin_header = request.headers.get("x-saifu-admin", "")
+    is_admin = (admin_header == ADMIN_HASH)
+    call_ctx_admin.set(is_admin)
+    call_ctx_type.set("match")
+
     # 启动后台任务
-    asyncio.create_task(_run_match(task_id, profile_dict))
+    asyncio.create_task(_run_match(task_id, profile_dict, is_admin=is_admin))
 
     return {
         "success": True,
@@ -220,7 +239,7 @@ async def get_match_result(task_id: str):
     }
 
 
-async def _run_match(task_id: str, profile_dict: dict):
+async def _run_match(task_id: str, profile_dict: dict, is_admin: bool = False):
     """后台执行匹配任务。"""
     import logging
     # 提取用户 LLM 配置（如有），用后即弃不落盘
@@ -237,14 +256,19 @@ async def _run_match(task_id: str, profile_dict: dict):
         if user_api_model:
             user_llm["model"] = user_api_model
 
+    # 确保调用上下文（端点已设置，这里做兜底）
+    call_ctx_admin.set(is_admin)
+
     try:
         # 排队：获取并发槽位
         async with match_semaphore:
             tasks[task_id]["status"] = "processing"
             # 在线程池中运行同步匹配函数，避免阻塞事件循环
+            call_ctx_type.set("match")
             result = await asyncio.to_thread(match_competitions, profile_dict, api_key=user_llm)
         # 生成个性化总结（备赛建议 + 风险提示 + 总体评估）
         try:
+            call_ctx_type.set("personal_summary")
             top_matches = result.get("open", [])[:5]
             summary_data = await asyncio.to_thread(
                 generate_personal_summary, profile_dict, top_matches, api_key=user_llm
@@ -317,8 +341,14 @@ async def start_import_research(body: ImportResearchInput, request: Request):
 
     user_data = body.user_data
 
+    # 设置调用上下文
+    admin_header = request.headers.get("x-saifu-admin", "")
+    is_admin = (admin_header == ADMIN_HASH)
+    call_ctx_admin.set(is_admin)
+    call_ctx_type.set("import_research")
+
     # 启动后台调研任务
-    asyncio.create_task(_run_import_research(task_id, user_data))
+    asyncio.create_task(_run_import_research(task_id, user_data, is_admin=is_admin))
 
     return {
         "success": True,
@@ -348,7 +378,7 @@ async def get_research_result(task_id: str):
     }
 
 
-async def _run_import_research(task_id: str, user_data: dict):
+async def _run_import_research(task_id: str, user_data: dict, is_admin: bool = False):
     """后台执行导入调研任务：保存用户数据 + 调用 AI 调研。"""
     import json
     import os
@@ -366,6 +396,10 @@ async def _run_import_research(task_id: str, user_data: dict):
             user_llm["base_url"] = user_api_base
         if user_api_model:
             user_llm["model"] = user_api_model
+
+    # 确保调用上下文
+    call_ctx_admin.set(is_admin)
+    call_ctx_type.set("import_research")
 
     try:
         # 1. 保存用户数据到本地 JSON（不含 api_key）
@@ -428,8 +462,14 @@ async def start_target_research(body: TargetResearchInput, request: Request):
 
     profile_dict = body.model_dump()
 
+    # 设置调用上下文
+    admin_header = request.headers.get("x-saifu-admin", "")
+    is_admin = (admin_header == ADMIN_HASH)
+    call_ctx_admin.set(is_admin)
+    call_ctx_type.set("target_research")
+
     # 启动后台任务
-    asyncio.create_task(_run_target_research(task_id, profile_dict))
+    asyncio.create_task(_run_target_research(task_id, profile_dict, is_admin=is_admin))
 
     return {
         "success": True,
@@ -454,7 +494,7 @@ async def get_target_research_result(task_id: str):
     }
 
 
-async def _run_target_research(task_id: str, profile_dict: dict):
+async def _run_target_research(task_id: str, profile_dict: dict, is_admin: bool = False):
     """后台执行定向调研任务。"""
     from services.research import run_targeted_research
     import logging
@@ -471,6 +511,10 @@ async def _run_target_research(task_id: str, profile_dict: dict):
             user_llm["base_url"] = user_api_base
         if user_api_model:
             user_llm["model"] = user_api_model
+
+    # 确保调用上下文
+    call_ctx_admin.set(is_admin)
+    call_ctx_type.set("target_research")
 
     try:
         result = await asyncio.to_thread(run_targeted_research, profile_dict, api_key=user_llm)

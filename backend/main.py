@@ -4,6 +4,7 @@
 """
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from typing import Optional
 import os
@@ -149,6 +150,17 @@ async def admin_analytics(request: Request):
     if admin_header != ADMIN_HASH:
         raise HTTPException(status_code=403, detail="仅管理员可访问")
     return get_analytics()
+
+
+@app.get("/admin")
+async def admin_dashboard():
+    """管理员数据看板页面（由 Render 后端直接托管，绕过 Vercel 部署限速）。"""
+    import os as _os
+    html_path = _os.path.join(_os.path.dirname(__file__), "admin.html")
+    if _os.path.exists(html_path):
+        with open(html_path, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    return HTMLResponse(content="<h1>admin.html 未找到</h1>", status_code=404)
 
 
 @app.get("/api/competitions")

@@ -13,7 +13,7 @@ const API_BASE_URL = window.location.hostname === 'localhost'
 // 管理员维护模式 bypass 令牌（SHA256(xiaolei0207)，与服务端一致）
 const ADMIN_HASH = 'fea2b9dcfc927a0c9d6fad5781f64b60754dce0ea76bbeca9eac202c553b049f';
 
-/** 带管理员 bypass 头的 fetch 封装 */
+/** 带管理员 bypass 头 + 超时的 fetch 封装 */
 function apiFetch(url, options = {}) {
   const opts = { ...options };
   if (isAdmin()) {
@@ -22,7 +22,11 @@ function apiFetch(url, options = {}) {
   if (opts.body && typeof opts.body === 'string') {
     opts.headers = { ...(opts.headers || {}), 'Content-Type': 'application/json' };
   }
-  return fetch(url, opts);
+  // 手机端网络不稳定，加超时（30s），防止无限挂起
+  const controller = new AbortController();
+  opts.signal = controller.signal;
+  const timeout = setTimeout(() => controller.abort(), 30000);
+  return fetch(url, opts).finally(() => clearTimeout(timeout));
 }
 
 const MATCH_TIMEOUT = 300000; // 300 秒超时（搜索+多轮AI调用需要时间）
@@ -1223,6 +1227,7 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+/** 更新加载区提示（根据轮询次数显示不同阶段） */
 function updateLoadingProgress(pollCount) {
   // 根据轮询次数更新加载提示
   const stage3 = document.getElementById('loadStep3');

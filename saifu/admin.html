@@ -130,7 +130,11 @@
 </div>
 
 <script>
-const API = '/api/admin/analytics';
+// API 地址：与 app.js 保持一致
+const API_BASE = window.location.hostname === 'localhost'
+  ? 'http://localhost:8000'
+  : 'https://saifu-backend-pk86.onrender.com';
+const API = API_BASE + '/api/admin/analytics';
 const PWD = 'xiaolei0207'; // 管理员密码，会做 SHA256 后放 header
 
 async function sha256(msg) {

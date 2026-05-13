@@ -78,6 +78,23 @@ class ImportResearchInput(BaseModel):
     user_data: dict  # 从报告文本解析出的所有字段
 
 
+class TargetResearchInput(BaseModel):
+    """定向调研（知道比赛名称）请求体。"""
+    school: str = ""
+    major: str = ""
+    grade: str = ""
+    competition_name: str = ""  # 用户指定的比赛名称
+    skills: str = ""
+    major_category: str = ""
+    goals: list = []
+    time_commitment: str = ""
+    alias: str = ""
+    # 可选：用户自己的 API Key
+    user_api_key: Optional[str] = ""
+    user_api_base_url: Optional[str] = ""
+    user_api_model: Optional[str] = ""
+
+
 @app.get("/api/health")
 async def health():
     """健康检查端点。"""
@@ -318,6 +335,87 @@ async def _run_import_research(task_id: str, user_data: dict):
     except Exception as e:
         tasks[task_id]["status"] = "error"
         tasks[task_id]["error"] = str(e) or "调研服务暂时不可用"
+
+
+# ── 定向调研 API（知道比赛名称 → 深度分析）──
+@app.post("/api/target-research")
+async def start_target_research(body: TargetResearchInput):
+    """提交定向调研任务 — 立即返回 task_id，后台异步处理。
+
+    用户知道比赛名称，填写简化画像后，AI 查找该比赛详情并生成个性化备赛规划。
+    """
+    task_id = "target_" + str(uuid.uuid4())[:8]
+    tasks[task_id] = {
+        "status": "processing",
+        "created_at": datetime.now().isoformat(),
+        "result": None,
+        "error": None,
+    }
+
+    profile_dict = body.model_dump()
+
+    # 启动后台任务
+    asyncio.create_task(_run_target_research(task_id, profile_dict))
+
+    return {
+        "success": True,
+        "task_id": task_id,
+        "message": "定向调研任务已提交，请轮询获取结果",
+    }
+
+
+@app.get("/api/target-research/{task_id}")
+async def get_target_research_result(task_id: str):
+    """查询定向调研任务状态和结果。"""
+    task = tasks.get(task_id)
+    if not task:
+        return {"success": False, "error": "任务不存在或已过期", "status": "not_found"}
+
+    return {
+        "success": True,
+        "task_id": task_id,
+        "status": task["status"],
+        "result": task["result"],
+        "error": task["error"],
+    }
+
+
+async def _run_target_research(task_id: str, profile_dict: dict):
+    """后台执行定向调研任务。"""
+    from services.research import run_targeted_research
+    import logging
+
+    # 提取用户 LLM 配置（如有）
+    user_api_key = profile_dict.pop("user_api_key", None) or None
+    user_api_base = profile_dict.pop("user_api_base_url", None) or None
+    user_api_model = profile_dict.pop("user_api_model", None) or None
+
+    user_llm = None
+    if user_api_key:
+        user_llm = {"api_key": user_api_key}
+        if user_api_base:
+            user_llm["base_url"] = user_api_base
+        if user_api_model:
+            user_llm["model"] = user_api_model
+
+    try:
+        result = await asyncio.to_thread(run_targeted_research, profile_dict, api_key=user_llm)
+        tasks[task_id]["status"] = "done"
+        tasks[task_id]["result"] = {
+            "success": True,
+            "user_name": profile_dict.get("alias", "") or profile_dict.get("school", ""),
+            "recommendations": result.get("recommendations", []),
+            "advice": result.get("advice", {}),
+            "risks": result.get("risks", []),
+            "summary": result.get("summary", ""),
+        }
+    except ServerAPIExhausted as e:
+        tasks[task_id]["status"] = "error"
+        tasks[task_id]["error"] = str(e)
+    except Exception as e:
+        logging.exception("定向调研失败")
+        tasks[task_id]["status"] = "error"
+        tasks[task_id]["error"] = str(e) or "定向调研服务暂时不可用"
 
 
 async def _cleanup_old_tasks():

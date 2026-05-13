@@ -660,7 +660,7 @@ textarea { resize: vertical; min-height: 60px; }
   </div><!-- end discoverForm -->
 
   <!-- ══ 模式二：知道比赛名称 → 简化表单 ══ -->
-  <div id="targetForm" style="display:none;">
+  <div id="targetForm" class="form-hidden">
     <form id="targetProfileForm" onsubmit="return false;" style="margin-top:16px;">
 
     <!-- ===== 一、基本信息 ===== -->
@@ -1090,6 +1090,9 @@ textarea { resize: vertical; min-height: 60px; }
   .api-key-platforms { flex-direction: row; flex-wrap: wrap; }
   .platform-card { min-width: 90px; }
 }
+
+/* ── 表单显隐 ── */
+.form-hidden { display: none !important; }
 
 /* ── 模式选择器 ── */
 .mode-selector {

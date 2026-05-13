@@ -365,3 +365,218 @@ def run_research(user_data: dict, api_key: str | dict | None = None) -> dict:
     result["myths"] = MYTHS
 
     return result
+
+
+def _find_kb_competition(name: str) -> dict | None:
+    """在知识库中按名称模糊查找竞赛。"""
+    name_lower = name.lower().strip()
+    # 精确匹配
+    for key, info in COMPETITION_FACTS.items():
+        if name_lower == key.lower() or name_lower == info.get("name", "").lower():
+            return {**info, "kb_key": key}
+    # 模糊匹配：名称包含用户输入
+    for key, info in COMPETITION_FACTS.items():
+        kb_name = info.get("name", key)
+        if name_lower in kb_name.lower() or kb_name.lower() in name_lower:
+            return {**info, "kb_key": key}
+    return None
+
+
+def run_targeted_research(profile: dict, api_key: str | dict | None = None) -> dict:
+    """定向调研：用户知道比赛名称，AI 查找详情并生成个性化备赛规划。
+
+    Args:
+        profile: 简化画像 dict，含 competition_name
+        api_key: 可选，用户 API Key
+
+    Returns:
+        dict: 含 recommendations / advice / risks / summary
+    """
+    import json
+    import re
+
+    competition_name = profile.get("competition_name", "")
+    school = profile.get("school", "未知")
+    major = profile.get("major", "未知")
+    grade = profile.get("grade", "未知")
+    skills = profile.get("skills", "未填写")
+    major_category = profile.get("major_category", "未指定")
+    goals = profile.get("goals", [])
+    goals_str = ", ".join(goals) if goals else "未指定"
+    time_commitment = profile.get("time_commitment", "未填写")
+    alias = profile.get("alias", "")
+
+    # ── 第1步：知识库查询 ──
+    kb_match = _find_kb_competition(competition_name)
+    kb_info_text = ""
+    if kb_match:
+        kb_info_text = f"""## 知识库中的竞赛信息
+- 全称：{kb_match.get('name', competition_name)}
+- 类别：{kb_match.get('cat', '未知')}
+- 参赛形式：{kb_match.get('registration_form', '未知')} | {kb_match.get('participation_type', '未知')}
+- 费用：{kb_match.get('fee_amount', '未知')}
+- 时间规律：{kb_match.get('timing', '未知')}
+- 官网：{kb_match.get('official_url', '待查')}
+- 描述：{kb_match.get('desc', '无')}
+- 适合专业：{kb_match.get('suitable_majors', '不限')}
+- 要求：{kb_match.get('requirements', '无特殊要求')}
+"""
+    else:
+        kb_info_text = "知识库中未找到该竞赛的详细信息，请根据你的知识回答。"
+
+    # ── 第2步：LLM 深度分析 ──
+    prompt = f"""你是一位资深的「大学生竞赛规划顾问」。用户指定了一个竞赛，请你做深度分析和个性化备赛规划。
+
+## 用户画像
+━━━━━━━━━━━━━━━━
+学校：{school}
+专业：{major}
+年级：{grade}
+专业大类：{major_category}
+核心技能：{skills}
+参赛目标：{goals_str}
+每周可投入时间：{time_commitment}
+想了解的比赛：{competition_name}
+━━━━━━━━━━━━━━━━
+
+{kb_info_text}
+
+## 任务
+请对该竞赛做深度分析，并为该用户生成个性化备赛规划。返回严格的 JSON：
+
+```json
+{{
+  "recommendations": [
+    {{
+      "name": "竞赛全称",
+      "level": "国家级/省级/国际级",
+      "deadline": "报名截止时间（知道填具体日期，否则填规律如'每年5-8月'，都不确定填'待公布'）",
+      "form": "个人赛/团队赛(几人)",
+      "fee": "免费 或 具体金额",
+      "reason": "该竞赛与该用户的适配度分析（结合专业、技能、年级，80字内）",
+      "preparation": "该用户需要做的具体准备（技能、材料、队友等，100字内）",
+      "match_score": 85,
+      "focus": "保研加分,能力锻炼,拿奖率高,企业直通 中选1-3个",
+      "official_url": "官网链接（不确定填'待查'）",
+      "desc": "200-300字详细描述该竞赛的内容、赛制流程、考核形式、评审标准等",
+      "cat": "🏫 学校/教育部类 或 💼 企业类",
+      "benefits": "参加该比赛的具体好处（结合用户目标，60字内）",
+      "pitfalls": "该比赛的潜在坑点和注意事项（结合用户情况，60字内）"
+    }}
+  ],
+  "advice": {{
+    "time_plan": "根据用户年级和每周时间，给出具体的备赛时间规划建议（200字内）",
+    "skill_improvement": "根据用户当前技能与该比赛要求，指出需要补强的方向（150字内）",
+    "team_strategy": "针对该比赛的组队建议（队友配置、找队友渠道，150字内）"
+  }},
+  "risks": [
+    {{
+      "type": "短板类型（如：技能缺口/时间紧张/年级劣势/组队困难/信息缺失）",
+      "detail": "具体风险描述（80字内）",
+      "solution": "可行的应对方案（100字内）"
+    }}
+  ],
+  "summary": "一段话总结：该用户参加该比赛的可行性、关键准备事项和获奖概率评估（150字内）"
+}}
+```
+
+## 规则
+- 知识库中有信息时优先用知识库的，LLM 补充分析和建议
+- desc 字段必须 200-300 字详细描述比赛内容（赛制、流程、考核形式）
+- reason 要结合用户的具体情况，不能泛泛而谈
+- risks 至少 2 条，最多 4 条
+- match_score 综合考虑用户条件与比赛要求的匹配度
+- 如果用户信息不足（如没填技能），在对应建议中标注"建议补充XX信息"
+- 只返回 JSON，不输出其他文字
+
+请开始分析。"""
+
+    messages = [
+        {"role": "system", "content": "你是一位资深的大学生竞赛规划顾问，擅长深度分析单个竞赛并给出个性化备赛建议。你只返回 JSON，不输出其他内容。"},
+        {"role": "user", "content": prompt},
+    ]
+
+    raw_text = call_deepseek(messages, temperature=0.4, max_tokens=4096, api_key=api_key)
+
+    # ── 解析 JSON ──
+    text = raw_text
+    if text.startswith("```"):
+        lines = text.split("\n")
+        text = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
+
+    result = None
+    for s in [text, text.strip()]:
+        try:
+            parsed = json.loads(s)
+            if isinstance(parsed, dict) and "recommendations" in parsed:
+                result = parsed
+                break
+        except json.JSONDecodeError:
+            pass
+
+    if result is None:
+        try:
+            match = re.search(r'\{[\s\S]*"recommendations"[\s\S]*\}', text)
+            if match:
+                parsed = json.loads(match.group(0))
+                if isinstance(parsed, dict):
+                    result = parsed
+        except (json.JSONDecodeError, AttributeError):
+            pass
+
+    if result is None:
+        result = {
+            "recommendations": [{
+                "name": competition_name,
+                "level": "待确认",
+                "deadline": "待公布",
+                "form": "待确认",
+                "fee": "待确认",
+                "reason": "AI 暂未生成分析，请重试",
+                "preparation": "请重试",
+                "match_score": 60,
+                "focus": "能力锻炼",
+                "official_url": "待查",
+                "desc": "分析暂未完成",
+                "cat": "🏫 学校/教育部类",
+                "benefits": "",
+                "pitfalls": "",
+            }],
+            "advice": {"time_plan": "AI 暂未生成建议，请重试。", "skill_improvement": "", "team_strategy": ""},
+            "risks": [{"type": "系统错误", "detail": "调研结果解析失败", "solution": "请稍后重试"}],
+            "summary": "调研结果解析失败，请重试。",
+        }
+
+    # ── 第3步：用知识库数据补全 ──
+    recs = result.get("recommendations", [])
+    for r in recs:
+        r_name = r.get("name", "")
+        # 类型分类
+        if not r.get("cat"):
+            r["cat"] = classify_competition(r_name)
+        # 补齐 benefits/pitfalls
+        if not r.get("benefits"):
+            r["benefits"] = get_benefit_text(r_name)
+        if not r.get("pitfalls"):
+            is_team = "团队" in str(r.get("form", ""))
+            fee_str = str(r.get("fee", ""))
+            is_free = (fee_str == "免费" or fee_str == "0")
+            r["pitfalls"] = get_pitfall_text(r_name, is_team, is_free, fee_str)
+        # 用知识库事实数据补全
+        if kb_match:
+            for field in ["level", "deadline", "form", "fee", "official_url", "desc", "cat"]:
+                llm_val = str(r.get(field, "")).strip()
+                kb_val = str(kb_match.get(field, "")).strip()
+                if not llm_val or llm_val in ("未知", "待公布", "待查", "待确认", "", "None"):
+                    if kb_val and kb_val not in ("未知", "待公布", "待查", "", "None"):
+                        r[field] = kb_val
+            # 补全 desc（优先 KB 中已有的详细描述）
+            kb_desc = kb_match.get("desc", "")
+            if kb_desc and len(str(r.get("desc", ""))) < 100:
+                r["desc"] = kb_desc
+
+    result["tips"] = TIPS
+    result["myths"] = MYTHS
+    result["kb_matched"] = bool(kb_match)
+
+    return result

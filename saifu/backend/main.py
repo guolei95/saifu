@@ -32,8 +32,8 @@ app.add_middleware(
 # ── 任务存储（内存中）──
 tasks: dict = {}  # task_id -> {"status": "queued"|"processing"|"done"|"error", "result": ..., "created_at": ..., "queue_position": N, "error": ...}
 
-# ── 并发控制（最多同时处理 2 个匹配/调研任务）──
-match_semaphore = asyncio.Semaphore(2)
+# ── 并发控制（最多同时处理 5 个匹配/调研任务）──
+match_semaphore = asyncio.Semaphore(5)
 
 def _get_queue_position(task_id: str) -> int:
     """计算某任务前面还有几个排队的。"""

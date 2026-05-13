@@ -232,11 +232,42 @@ async def _run_match(task_id: str, profile_dict: dict):
             result["advice"] = summary_data.get("advice", {})
             result["risks"] = summary_data.get("risks", [])
             result["summary"] = summary_data.get("summary", "")
+            # 校验：LLM 可能返回空字段，用模板补全
+            if not result["advice"].get("time_plan") and not result["advice"].get("skill_improvement") and not result["advice"].get("team_strategy"):
+                top_names = [m.get("name", "目标竞赛") for m in top_matches[:3] if m.get("name")]
+                result["advice"] = {
+                    "time_plan": f"建议优先关注 {'、'.join(top_names) if top_names else '匹配到的竞赛'}，提前规划备赛节奏。",
+                    "skill_improvement": "结合你的专业基础，针对竞赛要求补强相关技能。",
+                    "team_strategy": "寻找优势互补的队友，通过学校竞赛群或实验室招募。",
+                }
+            if not result.get("risks") or len(result.get("risks", [])) == 0:
+                result["risks"] = [
+                    {"type": "时间管理", "detail": "备赛需持续投入，可能与课业冲突", "solution": "制定周计划，拆解为每日小目标"},
+                ]
+            if not result.get("summary") or len(str(result.get("summary", "")).strip()) < 10:
+                total_open = len(result.get("open", []))
+                total_closed = len(result.get("closed", []))
+                top_name = top_matches[0].get("name", "匹配到的竞赛") if top_matches else "匹配到的竞赛"
+                result["summary"] = f"系统为你匹配到 {total_open} 个报名中的竞赛" + (f"和 {total_closed} 个可提前规划的竞赛" if total_closed else "") + f"。建议优先关注 {top_name}，结合你的专业和时间安排重点准备。"
         except Exception as e:
-            logging.warning(f"生成个人总结失败: {e}")
-            result["advice"] = {}
-            result["risks"] = []
-            result["summary"] = ""
+            logging.warning(f"生成个人总结失败，使用模板兜底: {e}")
+            # 模板兜底：即使 LLM 失败，也保证用户能看到总结
+            open_list = result.get("open", [])
+            closed_list = result.get("closed", [])
+            top3 = [m.get("name", "") for m in (open_list[:3]) if m.get("name")]
+            names_str = "、".join(top3) if top3 else "匹配到的竞赛"
+            result["advice"] = {
+                "time_plan": f"建议优先关注 {names_str}，根据报名截止时间倒推备赛节奏，提前 1-3 个月开始准备。",
+                "skill_improvement": f"针对 {names_str} 的要求，建议结合你的专业和技能基础，提前补强竞赛所需的特定技能。",
+                "team_strategy": "建议寻找 2-3 名优势互补的队友（如技术+设计+答辩），通过学校竞赛群或实验室招募。",
+            }
+            result["risks"] = [
+                {"type": "时间管理", "detail": "备赛需要持续投入时间，与课业可能冲突", "solution": "制定周计划，将备赛任务拆解为每天 1-2 小时的小目标"},
+                {"type": "信息不对称", "detail": "竞赛规则和评审标准可能更新", "solution": "定期查看官网通知，加入竞赛交流群获取最新动态"},
+            ]
+            total_open = len(open_list)
+            total_closed = len(closed_list)
+            result["summary"] = f"系统为你匹配到 {total_open} 个报名中的竞赛" + (f"和 {total_closed} 个可提前规划的竞赛" if total_closed else "") + f"。建议优先关注 {names_str}，结合你的专业背景和时间安排，选择匹配度最高的 2-3 个竞赛重点准备。"
         tasks[task_id]["status"] = "done"
         tasks[task_id]["result"] = result
     except ServerAPIExhausted as e:

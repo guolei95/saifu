@@ -229,33 +229,108 @@ function toggleFormSection(id) {
 }
 
 // ═══════════════════════════════════════
-// 进度条更新（v2: 适配9段表单）
+// 模式切换（不知道能参加什么 / 知道比赛名称）
+// ═══════════════════════════════════════
+let currentMode = 'discover'; // 'discover' | 'target'
+
+function switchMode(mode) {
+  // 防御：确保 mode 有效
+  if (mode !== 'discover' && mode !== 'target') return;
+
+  const discoverBtn = document.getElementById('modeDiscoverBtn');
+  const targetBtn = document.getElementById('modeTargetBtn');
+  const discoverForm = document.getElementById('discoverForm');
+  const targetForm = document.getElementById('targetForm');
+  const formHeader = document.getElementById('formHeader');
+  const h2 = formHeader ? formHeader.querySelector('h2') : null;
+
+  // 防御：关键元素缺失则报错
+  if (!discoverBtn || !targetBtn || !discoverForm || !targetForm) {
+    showToast('页面结构异常，请刷新后重试');
+    return;
+  }
+
+  currentMode = mode;
+
+  if (mode === 'discover') {
+    discoverBtn.classList.add('active');
+    targetBtn.classList.remove('active');
+    discoverForm.classList.remove('form-hidden');
+    targetForm.classList.add('form-hidden');
+    if (h2) h2.textContent = '🎯 用户画像';
+  } else {
+    targetBtn.classList.add('active');
+    discoverBtn.classList.remove('active');
+    discoverForm.classList.add('form-hidden');
+    targetForm.classList.remove('form-hidden');
+    if (h2) h2.textContent = '🎯 定向调研';
+  }
+
+  // 确保在表单 tab，隐藏其他区域
+  var tabFormBtn = document.getElementById('tabFormBtn');
+  var tabImportBtn = document.getElementById('tabImportBtn');
+  if (tabFormBtn) tabFormBtn.classList.add('active');
+  if (tabImportBtn) tabImportBtn.classList.remove('active');
+
+  var importArea = document.getElementById('importArea');
+  var formArea = document.getElementById('formArea');
+  var resultArea = document.getElementById('resultArea');
+  var researchResultArea = document.getElementById('researchResultArea');
+  var errorArea = document.getElementById('errorArea');
+  var loadingArea = document.getElementById('loadingArea');
+
+  if (importArea) importArea.style.display = 'none';
+  if (formArea) formArea.style.display = 'block';
+  if (resultArea) resultArea.style.display = 'none';
+  if (researchResultArea) researchResultArea.style.display = 'none';
+  if (errorArea) errorArea.style.display = 'none';
+  if (loadingArea) loadingArea.style.display = 'none';
+
+  updateProgress();
+  updateExportHints();
+}
+
+// ═══════════════════════════════════════
+// 进度条更新（根据当前模式计算）
 // ═══════════════════════════════════════
 function updateProgress() {
   let filled = 0;
-  const total = 10; // 总权重
+  let total = 10; // 默认（discover 模式）
 
-  // 一、基本信息
-  if ((document.getElementById('school')?.value?.trim() || '').length > 0) filled++;
-  if ((document.getElementById('major')?.value?.trim() || '').length > 0) filled++;
-  if (document.querySelector('input[name="grade"]:checked')) filled++;
-  if (document.querySelectorAll('input[name="interests"]:checked').length > 0) filled++;
+  if (currentMode === 'target') {
+    // 简化表单：7 个权重点
+    total = 7;
+    if ((document.getElementById('target-school')?.value?.trim() || '').length > 0) filled++;
+    if ((document.getElementById('target-major')?.value?.trim() || '').length > 0) filled++;
+    if (document.querySelector('input[name="target-grade"]:checked')) filled++;
+    if ((document.getElementById('target-competition-name')?.value?.trim() || '').length > 0) filled++;
+    if ((document.getElementById('target-core-skills')?.value?.trim() || '').length > 0) filled++;
+    if (document.querySelectorAll('input[name="target-goals"]:checked').length > 0) filled++;
+    if (document.querySelector('input[name="target-weekly-hours"]:checked')) filled++;
+  } else {
+    // 完整表单：10 个权重点
+    // 一、基本信息
+    if ((document.getElementById('school')?.value?.trim() || '').length > 0) filled++;
+    if ((document.getElementById('major')?.value?.trim() || '').length > 0) filled++;
+    if (document.querySelector('input[name="grade"]:checked')) filled++;
+    if (document.querySelectorAll('input[name="interests"]:checked').length > 0) filled++;
 
-  // 二、参赛目标
-  if (document.querySelectorAll('input[name="goals"]:checked').length > 0) filled++;
+    // 二、参赛目标
+    if (document.querySelectorAll('input[name="goals"]:checked').length > 0) filled++;
 
-  // 三、专业能力
-  if ((document.getElementById('core-skills')?.value?.trim() || '').length > 0) filled++;
-  if (document.querySelectorAll('input[name="tech-direction"]:checked').length > 0) filled++;
+    // 三、专业能力
+    if ((document.getElementById('core-skills')?.value?.trim() || '').length > 0) filled++;
+    if (document.querySelectorAll('input[name="tech-direction"]:checked').length > 0) filled++;
 
-  // 四、时间投入
-  if (document.querySelector('input[name="weekly-hours"]:checked')) filled++;
+    // 四、时间投入
+    if (document.querySelector('input[name="weekly-hours"]:checked')) filled++;
 
-  // 六、避免类型
-  if (document.querySelectorAll('input[name="avoid"]:checked').length > 0) filled++;
+    // 六、避免类型
+    if (document.querySelectorAll('input[name="avoid"]:checked').length > 0) filled++;
 
-  // 七、经历（有任一就算）
-  if ((document.getElementById('project1')?.value?.trim() || '').length > 0) filled++;
+    // 七、经历（有任一就算）
+    if ((document.getElementById('project1')?.value?.trim() || '').length > 0) filled++;
+  }
 
   const percent = Math.min(100, Math.round((filled / total) * 100));
   const fillEl = document.getElementById('progressFill');
@@ -315,6 +390,36 @@ function autoSave() {
 
 function loadSaved() {
   try {
+    // 根据当前模式选择不同的草稿
+    if (currentMode === 'target') {
+      const raw = localStorage.getItem(TARGET_SAVE_KEY);
+      if (!raw) { showToast('没有已保存的草稿'); return; }
+      const data = JSON.parse(raw);
+      const form = document.getElementById('targetProfileForm');
+      if (!form) return;
+
+      form.querySelectorAll('input[type="radio"], input[type="checkbox"]').forEach(el => el.checked = false);
+      form.querySelectorAll('input[type="text"], input[type="url"], textarea').forEach(el => el.value = '');
+
+      for (const [key, val] of Object.entries(data)) {
+        if (Array.isArray(val)) {
+          val.forEach(v => {
+            const cb = form.querySelector(`input[name="${key}"][value="${v.replace(/"/g, '&quot;')}"]`);
+            if (cb) cb.checked = true;
+          });
+        } else {
+          const el = form.querySelector(`[id="${key}"]`) || form.querySelector(`input[name="${key}"][value="${val.replace(/"/g, '&quot;')}"]`);
+          if (el) {
+            if (el.type === 'radio') el.checked = true;
+            else el.value = val;
+          }
+        }
+      }
+      updateProgress();
+      showToast('草稿已恢复 ✅');
+      return;
+    }
+
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) { showToast('没有已保存的草稿'); return; }
     const data = JSON.parse(raw);
@@ -351,6 +456,18 @@ function loadSaved() {
 
 function clearForm() {
   if (!confirm('确定要清空所有填写内容吗？此操作不可恢复。')) return;
+
+  if (currentMode === 'target') {
+    const form = document.getElementById('targetProfileForm');
+    if (!form) return;
+    form.querySelectorAll('input[type="radio"], input[type="checkbox"]').forEach(el => el.checked = false);
+    form.querySelectorAll('input[type="text"], input[type="url"], textarea').forEach(el => el.value = '');
+    updateProgress();
+    try { localStorage.removeItem(TARGET_SAVE_KEY); } catch (e) {}
+    showToast('已清空 ✅');
+    return;
+  }
+
   const form = document.getElementById('profileForm');
   if (!form) return;
   form.querySelectorAll('input[type="radio"], input[type="checkbox"]').forEach(el => el.checked = false);
@@ -704,6 +821,172 @@ function collectProfile() {
 }
 
 // ═══════════════════════════════════════
+// 收集简化画像（定向调研模式）
+// ═══════════════════════════════════════
+function collectTargetProfile() {
+  const getRadio = (name) => {
+    const el = document.querySelector(`input[name="${name}"]:checked`);
+    return el ? el.value : '';
+  };
+  const getVal = (id) => (document.getElementById(id)?.value?.trim() || '');
+  const getChecked = (name) => {
+    return Array.from(document.querySelectorAll(`input[name="${name}"]:checked`))
+      .map(cb => cb.value);
+  };
+
+  return {
+    alias: getVal('target-alias'),
+    school: getVal('target-school'),
+    major: getVal('target-major'),
+    grade: getRadio('target-grade'),
+    competition_name: getVal('target-competition-name'),
+    skills: getVal('target-core-skills'),
+    major_category: getRadio('target-major-category'),
+    goals: getChecked('target-goals'),
+    time_commitment: getRadio('target-weekly-hours'),
+  };
+}
+
+// ── 简化表单自动保存 ──
+const TARGET_SAVE_KEY = 'saifu_target_profile_draft';
+
+function autoSaveTarget() {
+  updateProgress();
+  const form = document.getElementById('targetProfileForm');
+  if (!form) return;
+  const data = {};
+  form.querySelectorAll('input, select, textarea').forEach(el => {
+    if (el.type === 'radio') {
+      if (el.checked) data[el.name] = el.value;
+    } else if (el.type === 'checkbox') {
+      if (!data[el.name]) data[el.name] = [];
+      if (el.checked) data[el.name].push(el.value);
+    } else {
+      data[el.id || el.name] = el.value;
+    }
+  });
+  try { localStorage.setItem(TARGET_SAVE_KEY, JSON.stringify(data)); } catch (e) {}
+}
+
+// ═══════════════════════════════════════
+// 定向调研（知道比赛名称 → 深度分析）
+// ═══════════════════════════════════════
+async function startTargetResearch() {
+  const canProceed = await checkUsageAndPrompt();
+  if (!canProceed) return;
+
+  const profile = collectTargetProfile();
+
+  if (!profile.school || !profile.major || !profile.grade) {
+    alert('请至少填写学校、专业和年级');
+    return;
+  }
+  if (!profile.competition_name) {
+    alert('请输入你想了解的比赛名称');
+    return;
+  }
+
+  // 附带用户 API Key
+  attachLLMConfig(profile);
+
+  // 显示加载
+  document.getElementById('formArea').style.display = 'none';
+  document.getElementById('resultArea').style.display = 'none';
+  document.getElementById('researchResultArea').style.display = 'none';
+  document.getElementById('errorArea').style.display = 'none';
+  document.getElementById('loadingArea').style.display = 'block';
+  document.getElementById('loadingArea').scrollIntoView({ behavior: 'smooth' });
+
+  // 更新加载步骤文字
+  const stage1 = document.getElementById('loadStep1');
+  const stage2 = document.getElementById('loadStep2');
+  const stage3 = document.getElementById('loadStep3');
+  const stage4 = document.getElementById('loadStep4');
+  if (stage1) { stage1.textContent = '• 正在查找比赛信息...'; stage1.classList.add('active'); }
+  if (stage2) { stage2.textContent = '• 正在分析你的个人情况...'; stage2.classList.remove('active'); }
+  if (stage3) { stage3.textContent = '• AI 正在生成备赛规划...'; stage3.classList.remove('active'); }
+  if (stage4) { stage4.textContent = '• 正在生成定向调研报告...'; stage4.classList.remove('active'); }
+  document.querySelector('#loadingArea .loading-card h3').textContent = 'AI 正在分析比赛并规划...';
+
+  const btn = document.getElementById('btnTargetResearch');
+  btn.disabled = true;
+  btn.textContent = '⏳ 分析中...';
+
+  // 模拟步骤动画
+  setTimeout(() => { if (stage2) stage2.classList.add('active'); }, 2000);
+  setTimeout(() => { if (stage3) stage3.classList.add('active'); }, 8000);
+  setTimeout(() => { if (stage4) stage4.classList.add('active'); }, 18000);
+
+  try {
+    const submitResp = await fetch(API_BASE_URL + '/api/target-research', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(profile),
+    });
+
+    if (!submitResp.ok) throw new Error('提交失败: ' + submitResp.status);
+
+    const submitData = await submitResp.json();
+    if (!submitData.success || !submitData.task_id) {
+      throw new Error(submitData.error || '提交任务失败');
+    }
+
+    const taskId = submitData.task_id;
+    const pollInterval = 2000;
+    const maxPolls = 120;
+    let pollCount = 0;
+
+    while (pollCount < maxPolls) {
+      await sleep(pollInterval);
+      pollCount++;
+
+      try {
+        const pollResp = await fetch(API_BASE_URL + '/api/target-research/' + taskId);
+        if (!pollResp.ok) continue;
+
+        const pollData = await pollResp.json();
+
+        if (pollData.status === 'done') {
+          if (!pollData.result || !pollData.result.success) {
+            throw new Error((pollData.result && pollData.result.error) || '调研失败');
+          }
+          if (pollData.result.user_name) {
+            currentResearchUser = pollData.result.user_name;
+          }
+          incrementUsage();
+          renderResearchResults(pollData.result);
+          return;
+        }
+
+        if (pollData.status === 'error') {
+          throw new Error(pollData.error || '服务出错');
+        }
+      } catch (pollErr) {
+        if (pollErr.message && !pollErr.message.includes('Failed to fetch')) {
+          throw pollErr;
+        }
+      }
+    }
+
+    throw new Error('调研超时，请稍后重试。');
+
+  } catch (error) {
+    if (error.message && (error.message.includes('Failed to fetch') || error.message.includes('NetworkError'))) {
+      showError('无法连接到服务器。请检查后端是否已部署并运行。');
+    } else {
+      showError(error.message || '未知错误');
+    }
+  } finally {
+    document.getElementById('loadingArea').style.display = 'none';
+    // 恢复加载标题
+    const h3 = document.querySelector('#loadingArea .loading-card h3');
+    if (h3) h3.textContent = 'AI 正在搜索和匹配竞赛...';
+    btn.disabled = false;
+    btn.textContent = '🔍 查看比赛详情与规划';
+  }
+}
+
+// ═══════════════════════════════════════
 // 开始匹配（提交+轮询模式）
 // ═══════════════════════════════════════
 async function startMatch() {
@@ -887,6 +1170,16 @@ function backToForm() {
   document.getElementById('formArea').style.display = 'block';
   document.getElementById('tabFormBtn').classList.add('active');
   document.getElementById('tabImportBtn').classList.remove('active');
+  // 恢复当前模式对应的子表单
+  var df = document.getElementById('discoverForm');
+  var tf = document.getElementById('targetForm');
+  if (currentMode === 'target') {
+    if (df) df.classList.add('form-hidden');
+    if (tf) tf.classList.remove('form-hidden');
+  } else {
+    if (df) df.classList.remove('form-hidden');
+    if (tf) tf.classList.add('form-hidden');
+  }
   document.getElementById('formArea').scrollIntoView({ behavior: 'smooth' });
 }
 
@@ -1392,7 +1685,9 @@ function renderResearchResults(data) {
     backBar.style.cssText = 'margin-bottom:14px;text-align:right;';
     area.insertBefore(backBar, area.firstChild);
   }
-  backBar.innerHTML = '<button class="btn btn-outline btn-sm" onclick="backToImport()">🔙 返回修改</button>';
+  // 根据来源决定返回目标：定向调研 → 返回表单，导入调研 → 返回导入面板
+  const backFn = (currentMode === 'target') ? 'backToForm()' : 'backToImport()';
+  backBar.innerHTML = '<button class="btn btn-outline btn-sm" onclick="' + backFn + '">🔙 返回修改</button>';
 
   // ── 推荐竞赛卡片 ──
   const cardsContainer = document.getElementById('researchCards');
@@ -1564,8 +1859,14 @@ let currentResearchUser = '';
 
 /** 获取用户别名（用于文件名），优先级：输入框 > 调研用户名 > 空 */
 function getAlias() {
-  const alias = (document.getElementById('alias')?.value || '').trim();
-  if (alias) return alias;
+  // 先检查当前模式的别名字段
+  if (currentMode === 'target') {
+    const alias = (document.getElementById('target-alias')?.value || '').trim();
+    if (alias) return alias;
+  } else {
+    const alias = (document.getElementById('alias')?.value || '').trim();
+    if (alias) return alias;
+  }
   if (currentResearchUser) return currentResearchUser;
   return '';
 }

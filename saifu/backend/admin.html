@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>赛赋 SaiFu · 管理员数据看板</title>
+<style>
+  :root {
+    --bg: #f5f6fa; --card: #fff; --text: #2c3e50; --sub: #888;
+    --accent: #5b6af0; --green: #27ae60; --orange: #f0a500; --red: #e74c3c;
+    --radius: 12px; --shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: var(--bg); color: var(--text); padding: 20px; }
+  .container { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  .subtitle { color: var(--sub); font-size: 13px; margin-bottom: 24px; }
+
+  /* 状态栏 */
+  .status-bar {
+    background: var(--card); border-radius: var(--radius); padding: 16px 20px;
+    box-shadow: var(--shadow); margin-bottom: 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  }
+  .status-bar .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .dot.ok { background: var(--green); }
+  .dot.warn { background: var(--orange); animation: pulse 1.5s infinite; }
+  .dot.dead { background: var(--red); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .status-text { font-size: 15px; font-weight: 600; }
+  .status-meta { font-size: 13px; color: var(--sub); }
+
+  /* 摘要卡片 */
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin-bottom: 20px; }
+  .stat-card {
+    background: var(--card); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow);
+  }
+  .stat-card .label { font-size: 12px; color: var(--sub); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .stat-card .value { font-size: 28px; font-weight: 700; }
+  .stat-card .note { font-size: 12px; color: var(--sub); margin-top: 4px; }
+  .value.green { color: var(--green); }
+  .value.orange { color: var(--orange); }
+  .value.red { color: var(--red); }
+
+  /* 区块 */
+  .section {
+    background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 20px; overflow: hidden;
+  }
+  .section-h { padding: 14px 20px; font-size: 15px; font-weight: 600; border-bottom: 1px solid #f0f0f0; }
+  .section-b { padding: 16px 20px; }
+
+  /* 表格 */
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; padding: 10px 12px; color: var(--sub); font-weight: 500; border-bottom: 2px solid #f0f0f0; font-size: 12px; text-transform: uppercase; }
+  td { padding: 10px 12px; border-bottom: 1px solid #f5f5f5; }
+  tr:hover td { background: #fafbfc; }
+  .mono { font-family: "SF Mono", "Menlo", monospace; font-size: 13px; }
+
+  /* 进度条 */
+  .progress-wrap { margin-top: 12px; }
+  .progress-bar { height: 8px; background: #eee; border-radius: 4px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.3s; }
+  .progress-fill.warn { background: var(--orange); }
+  .progress-fill.danger { background: var(--red); }
+
+  /* 标签 */
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+  .tag-match { background: #e8f0fe; color: #4a6fa5; }
+  .tag-research { background: #fff3e0; color: #e65100; }
+  .tag-target { background: #f3e5f5; color: #7b1fa2; }
+  .tag-summary { background: #e8f5e9; color: #2e7d32; }
+  .tag-admin { background: #fce4ec; color: #c62828; }
+  .tag-user { background: #e3f2fd; color: #1565c0; }
+
+  /* 按钮 */
+  .btn-refresh {
+    padding: 8px 18px; border: 1px solid var(--accent); border-radius: 8px;
+    background: #fff; color: var(--accent); cursor: pointer; font-size: 13px; font-weight: 500;
+    transition: all 0.15s;
+  }
+  .btn-refresh:hover { background: var(--accent); color: #fff; }
+
+  .empty { text-align: center; padding: 40px 20px; color: var(--sub); font-size: 14px; }
+
+  @media (max-width: 600px) {
+    body { padding: 12px; }
+    .card-grid { grid-template-columns: 1fr 1fr; }
+    .stat-card .value { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px">
+    <div>
+      <h1>📊 赛赋 SaiFu · 数据看板</h1>
+      <div class="subtitle">API 消费追踪 · 实时更新</div>
+    </div>
+    <button class="btn-refresh" onclick="loadData()">🔄 刷新</button>
+  </div>
+
+  <!-- 预算状态 -->
+  <div class="status-bar" id="statusBar">
+    <div class="dot ok" id="statusDot"></div>
+    <div>
+      <div class="status-text" id="statusText">加载中...</div>
+      <div class="status-meta" id="statusMeta"></div>
+    </div>
+  </div>
+
+  <!-- 摘要卡片 -->
+  <div class="card-grid" id="summaryCards"></div>
+
+  <!-- 按类型 -->
+  <div class="section">
+    <div class="section-h">📋 按调用类型统计</div>
+    <div class="section-b" id="typeTable" style="overflow-x:auto"></div>
+  </div>
+
+  <!-- 按天 -->
+  <div class="section">
+    <div class="section-h">📅 每日消费趋势</div>
+    <div class="section-b" id="dailyTable" style="overflow-x:auto"></div>
+  </div>
+
+  <!-- 最近调用 -->
+  <div class="section">
+    <div class="section-h">🕐 最近 20 次调用</div>
+    <div class="section-b" id="recentTable" style="overflow-x:auto"></div>
+  </div>
+</div>
+
+<script>
+// API 地址：页面由 Render 后端托管，直接用同源相对路径
+const API = '/api/admin/analytics';
+const PWD = 'xiaolei0207'; // 管理员密码，会做 SHA256 后放 header
+
+async function sha256(msg) {
+  const buf = new TextEncoder().encode(msg);
+  const hash = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+async function loadData() {
+  const hash = await sha256(PWD);
+  try {
+    const resp = await fetch(API, { headers: { 'x-saifu-admin': hash } });
+    if (!resp.ok) {
+      document.getElementById('statusBar').innerHTML = '<div class="dot dead"></div><div><div class="status-text">鉴权失败</div><div class="status-meta">HTTP ' + resp.status + ' — 密码是否正确？</div></div>';
+      return;
+    }
+    const d = await resp.json();
+    render(d);
+  } catch(e) {
+    document.getElementById('statusBar').innerHTML = '<div class="dot dead"></div><div><div class="status-text">无法连接</div><div class="status-meta">' + e.message + '</div></div>';
+  }
+}
+
+function render(d) {
+  const b = d.budget || {};
+
+  // ── 状态栏 ──
+  const dot = document.getElementById('statusDot');
+  dot.className = 'dot ' + (b.is_bankrupt ? 'dead' : b.usage_percent > 80 ? 'warn' : 'ok');
+  document.getElementById('statusText').textContent = b.is_bankrupt
+    ? '😭 小雷已破产 — 预算耗尽'
+    : b.usage_percent > 80
+    ? '⚠️ 预算告急 — 已用 ' + b.usage_percent.toFixed(1) + '%'
+    : '✅ 预算充足 — 已用 ' + b.usage_percent.toFixed(1) + '%';
+  document.getElementById('statusMeta').innerHTML =
+    '累计消费 <b>¥' + b.total_cost.toFixed(4) + '</b> / 上限 ¥' + b.cap +
+    ' · 剩余 ¥' + b.remaining.toFixed(4) +
+    ' · 共 ' + b.call_count + ' 次调用' +
+    ' · 估算还能用 <b>' + (d.estimated_remaining_calls || 0) + '</b> 次';
+
+  // ── 摘要卡片 ──
+  const role = d.by_role || {};
+  const total = d.total || {};
+  document.getElementById('summaryCards').innerHTML =
+    '<div class="stat-card"><div class="label">总调用次数</div><div class="value">' + total.calls + '</div><div class="note">所有类型合计</div></div>' +
+    '<div class="stat-card"><div class="label">总消费金额</div><div class="value ' + (b.usage_percent > 80 ? 'orange' : '') + '">¥' + total.cost.toFixed(4) + '</div><div class="note">每百万 token 输入¥1 输出¥2</div></div>' +
+    '<div class="stat-card"><div class="label">👑 管理员消费</div><div class="value">¥' + (role.admin?.cost||0).toFixed(4) + '</div><div class="note">' + (role.admin?.calls||0) + ' 次调用</div></div>' +
+    '<div class="stat-card"><div class="label">👥 用户消费</div><div class="value">¥' + (role.user?.cost||0).toFixed(4) + '</div><div class="note">' + (role.user?.calls||0) + ' 次调用</div></div>';
+
+  // ── 按类型 ──
+  const byType = d.by_type || {};
+  const typeNames = {
+    'match': '🏫 竞赛匹配', 'personal_summary': '📝 个性化总结',
+    'import_research': '🔬 导入调研', 'target_research': '🎯 定向调研', 'unknown': '❓ 未知'
+  };
+  const typeKeys = Object.keys(byType);
+  if (typeKeys.length === 0) {
+    document.getElementById('typeTable').innerHTML = '<div class="empty">暂无调用记录</div>';
+  } else {
+    let html = '<table><thead><tr><th>类型</th><th>调用次数</th><th>累计费用</th><th>均价/次</th><th>输入 token</th><th>输出 token</th></tr></thead><tbody>';
+    for (const [k, v] of Object.entries(byType)) {
+      html += '<tr>' +
+        '<td>' + (typeNames[k] || k) + '</td>' +
+        '<td><b>' + v.calls + '</b></td>' +
+        '<td class="mono">¥' + v.cost.toFixed(6) + '</td>' +
+        '<td class="mono">¥' + v.avg_cost.toFixed(6) + '</td>' +
+        '<td class="mono">' + (v.tokens_in || 0).toLocaleString() + '</td>' +
+        '<td class="mono">' + (v.tokens_out || 0).toLocaleString() + '</td>' +
+        '</tr>';
+    }
+    html += '</tbody></table>';
+    document.getElementById('typeTable').innerHTML = html;
+  }
+
+  // ── 按天 ──
+  const daily = d.daily || [];
+  if (daily.length === 0) {
+    document.getElementById('dailyTable').innerHTML = '<div class="empty">暂无每日数据</div>';
+  } else {
+    let html = '<table><thead><tr><th>日期</th><th>调用次数</th><th>费用</th></tr></thead><tbody>';
+    for (const day of daily.slice(-30)) {
+      html += '<tr><td>' + day.date + '</td><td><b>' + day.calls + '</b></td><td class="mono">¥' + day.cost.toFixed(6) + '</td></tr>';
+    }
+    html += '</tbody></table>';
+    document.getElementById('dailyTable').innerHTML = html;
+  }
+
+  // ── 最近调用 ──
+  const recent = d.recent || [];
+  if (recent.length === 0) {
+    document.getElementById('recentTable').innerHTML = '<div class="empty">暂无调用记录</div>';
+  } else {
+    let html = '<table><thead><tr><th>时间</th><th>类型</th><th>角色</th><th>输入</th><th>输出</th><th>费用</th></tr></thead><tbody>';
+    const tagClass = { 'match': 'tag-match', 'personal_summary': 'tag-summary', 'import_research': 'tag-research', 'target_research': 'tag-target' };
+    for (const r of recent) {
+      const ts = r.ts ? r.ts.replace('T', ' ').substring(0, 19) : '-';
+      html += '<tr>' +
+        '<td class="mono">' + ts + '</td>' +
+        '<td><span class="tag ' + (tagClass[r.type] || '') + '">' + (typeNames[r.type] || r.type) + '</span></td>' +
+        '<td><span class="tag ' + (r.admin ? 'tag-admin' : 'tag-user') + '">' + (r.admin ? '👑 管理员' : '👥 用户') + '</span></td>' +
+        '<td class="mono">' + (r.in || 0).toLocaleString() + '</td>' +
+        '<td class="mono">' + (r.out || 0).toLocaleString() + '</td>' +
+        '<td class="mono">¥' + (r.cost || 0).toFixed(6) + '</td>' +
+        '</tr>';
+    }
+    html += '</tbody></table>';
+    document.getElementById('recentTable').innerHTML = html;
+  }
+}
+
+loadData();
+</script>
+</body>
+</html>

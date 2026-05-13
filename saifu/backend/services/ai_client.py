@@ -1,16 +1,28 @@
 """
 LLM API 调用封装 — 提供 call_deepseek() 和 call_deepseek_json() 两个函数。
 支持用户自带 API Key / Base URL / Model，实现多平台兼容。
+集成服务端 5 元预算追踪，超额后强制用户使用自有密钥。
 """
 import json
 import re
 from openai import OpenAI
 from config import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL, LLM_TEMPERATURE, LLM_MAX_TOKENS
+from services.budget import check_budget, record_usage, is_bankrupt, get_bankrupt_message
 
 
 class ServerAPIExhausted(Exception):
     """服务器 API 额度耗尽或用户密钥无效时抛出。前端捕获后提示「小雷已破产」。"""
     pass
+
+
+def _is_using_server_key(api_key=None) -> bool:
+    """判断当前调用是否使用服务端 Key（非用户自带）。"""
+    if api_key is None:
+        return True
+    if isinstance(api_key, dict):
+        key = api_key.get("api_key", "") or api_key.get("key", "")
+        return not bool(key)
+    return not bool(api_key)
 
 
 # 全局默认客户端（使用服务器 Key）
@@ -75,6 +87,11 @@ def call_deepseek(messages, temperature=None, max_tokens=None, api_key=None, api
     tokens = max_tokens if max_tokens is not None else LLM_MAX_TOKENS
     client, model = _get_client(api_key, api_base, api_model)
 
+    # ── 预算检查（仅服务端 Key）──
+    using_server_key = _is_using_server_key(api_key)
+    if using_server_key and is_bankrupt():
+        raise ServerAPIExhausted(get_bankrupt_message())
+
     try:
         resp = client.chat.completions.create(
             model=model,
@@ -82,8 +99,16 @@ def call_deepseek(messages, temperature=None, max_tokens=None, api_key=None, api
             temperature=temp,
             max_tokens=tokens,
         )
+        # ── 记录消费（仅服务端 Key）──
+        if using_server_key and resp.usage:
+            record_usage(
+                prompt_tokens=resp.usage.prompt_tokens,
+                completion_tokens=resp.usage.completion_tokens,
+            )
         return resp.choices[0].message.content.strip()
     except Exception as e:
+        # 预算检查已在上面完成，这里只处理真实 API 错误
+        # 不重复检查预算（避免覆盖破产消息）
         error_str = str(e).lower()
         # 识别额度/余额/付费相关错误 + 鉴权失败
         bankrupt_keywords = [

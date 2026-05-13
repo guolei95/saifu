@@ -28,3 +28,8 @@ SLEEP_BETWEEN_QUERIES = 0.5  # 搜索间隔（防 DuckDuckGo 限速）
 # ── 匹配配置 ──
 MIN_MATCH_SCORE = 50  # 低于此分数的竞赛不展示
 MAX_CLOSED_COMPETITIONS = 1  # 已截止竞赛最多保留几条
+
+# ── 公开访问开关 ──
+# 设为 "false" 关闭公开访问，仅管理员可用（管理员通过 x-saifu-admin 请求头识别）
+SAIFU_ENABLED = os.environ.get("SAIFU_ENABLED", "true").lower() != "false"
+ADMIN_HASH = "fea2b9dcfc927a0c9d6fad5781f64b60754dce0ea76bbeca9eac202c553b049f"  # SHA256(xiaolei0207)

@@ -30,7 +30,22 @@ app.add_middleware(
 )
 
 # ── 任务存储（内存中）──
-tasks: dict = {}  # task_id -> {"status": "processing"|"done"|"error", "result": ..., "created_at": ..., "error": ...}
+tasks: dict = {}  # task_id -> {"status": "queued"|"processing"|"done"|"error", "result": ..., "created_at": ..., "queue_position": N, "error": ...}
+
+# ── 并发控制（最多同时处理 2 个匹配/调研任务）──
+match_semaphore = asyncio.Semaphore(2)
+
+def _get_queue_position(task_id: str) -> int:
+    """计算某任务前面还有几个排队的。"""
+    current = tasks.get(task_id)
+    if not current:
+        return 0
+    # 统计创建时间更早且状态为 queued 的任务
+    pos = 0
+    for tid, t in tasks.items():
+        if t.get("status") == "queued" and t.get("created_at", "") < current.get("created_at", ""):
+            pos += 1
+    return pos
 
 
 class ProfileInput(BaseModel):
@@ -142,9 +157,10 @@ async def start_match(profile: ProfileInput):
     前端用 task_id 轮询 GET /api/match/{task_id} 获取结果。
     """
     task_id = str(uuid.uuid4())[:8]
+    now = datetime.now().isoformat()
     tasks[task_id] = {
-        "status": "processing",
-        "created_at": datetime.now().isoformat(),
+        "status": "queued",
+        "created_at": now,
         "result": None,
         "error": None,
     }
@@ -165,6 +181,7 @@ async def start_match(profile: ProfileInput):
 async def get_match_result(task_id: str):
     """查询匹配任务状态和结果。
 
+    status="queued": 排队等待中
     status="processing": 还在处理中
     status="done": 已完成，result 字段包含匹配结果
     status="error": 出错，error 字段包含错误信息
@@ -177,6 +194,7 @@ async def get_match_result(task_id: str):
         "success": True,
         "task_id": task_id,
         "status": task["status"],
+        "queue_position": _get_queue_position(task_id) if task["status"] == "queued" else 0,
         "result": task["result"],
         "error": task["error"],
     }
@@ -200,8 +218,11 @@ async def _run_match(task_id: str, profile_dict: dict):
             user_llm["model"] = user_api_model
 
     try:
-        # 在线程池中运行同步匹配函数，避免阻塞事件循环
-        result = await asyncio.to_thread(match_competitions, profile_dict, api_key=user_llm)
+        # 排队：获取并发槽位
+        async with match_semaphore:
+            tasks[task_id]["status"] = "processing"
+            # 在线程池中运行同步匹配函数，避免阻塞事件循环
+            result = await asyncio.to_thread(match_competitions, profile_dict, api_key=user_llm)
         # 生成个性化总结（备赛建议 + 风险提示 + 总体评估）
         try:
             top_matches = result.get("open", [])[:5]

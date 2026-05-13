@@ -931,7 +931,10 @@ textarea { resize: vertical; min-height: 60px; }
     <!-- Key 输入 -->
     <div class="api-key-field">
       <label class="api-key-label">API Key</label>
-      <input type="password" id="apiKeyInput" placeholder="粘贴你的 Key（如 sk-xxx / ark-xxx）" autocomplete="off">
+      <div class="api-key-input-wrap">
+        <input type="password" id="apiKeyInput" placeholder="粘贴你的 Key（如 sk-xxx / ark-xxx）" autocomplete="off">
+        <button class="api-key-eye" onclick="toggleApiKeyVisibility()" title="显示/隐藏密钥" tabindex="-1">👁️</button>
+      </div>
     </div>
 
     <!-- Base URL + Model（平台选择自动填充，自定义可手改） -->
@@ -949,8 +952,8 @@ textarea { resize: vertical; min-height: 60px; }
       <button class="btn btn-primary" onclick="submitApiKey()" style="flex:1;justify-content:center;">
         ✅ 确认使用
       </button>
-      <button class="btn btn-ghost btn-sm" onclick="clearApiKey()" title="清除已保存的密钥">
-        🗑
+      <button class="btn btn-outline btn-sm" onclick="clearApiKey()" title="清除已保存的密钥" style="flex-shrink:0;">
+        🗑 清除
       </button>
     </div>
 
@@ -1059,6 +1062,16 @@ textarea { resize: vertical; min-height: 60px; }
 /* 表单字段 */
 .api-key-field { margin-bottom: 10px; }
 .api-key-label { display: block; font-size: 12px; font-weight: 600; color: #666; margin-bottom: 4px; }
+/* API Key 输入框 + 眼睛按钮 */
+.api-key-input-wrap { position: relative; display: flex; align-items: center; }
+.api-key-input-wrap input { flex: 1; padding-right: 36px !important; }
+.api-key-eye {
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer; font-size: 16px; padding: 4px 6px;
+  line-height: 1; border-radius: 4px; opacity: 0.5; transition: opacity 0.2s;
+}
+.api-key-eye:hover { opacity: 1; background: rgba(0,0,0,0.05); }
+
 .api-key-field input, .api-key-field select {
   width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px;
   font-size: 13px; font-family: monospace; background: #fafbfc; transition: border 0.2s;
